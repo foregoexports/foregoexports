@@ -49,10 +49,10 @@ nav a,.nav-cta{color:inherit;text-decoration:none;font-size:10px;font-weight:700
 .image-placeholder{position:relative;background-size:cover;background-position:center}
 .image-placeholder:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,22,45,.02),rgba(8,22,45,.62))}
 .image-placeholder[data-label]:before{content:attr(data-label);position:absolute;z-index:2;top:18px;left:18px;color:#fff;font-size:9px;letter-spacing:.14em;text-transform:uppercase;opacity:.7}
-.p1{background-image:url('https://images.unsplash.com/photo-1586208958839-06c17cacdf08?auto=format&fit=crop&w=900&q=80')}
-.p2{background-image:url('https://images.unsplash.com/photo-1580984969071-a8da5656c2fb?auto=format&fit=crop&w=900&q=80')}
-.p3{background-image:url('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=900&q=80')}
-.promise{display:grid;grid-template-columns:1fr 1fr;padding:0;background:#fff}
+.p1{background-image:url('rice.jpg')}
+.p2{background-image:url('coconut.jpg')}
+.p3{background-image:url('fresh-produce.jpg')}
+.promise-photo{background-image:url('quality-check.jpg')}
 .promise-photo{min-height:790px;background-image:url('https://images.unsplash.com/photo-1464226184884-fa280b87c399?auto=format&fit=crop&w=1200&q=85')}
 .promise-copy{padding:112px 9vw 70px}
 .principles{margin-top:58px;border-top:1px solid var(--line)}
