@@ -92,7 +92,7 @@ let cargoGroup;
 let autoRotate = false;
 let currentView = '3d';
 
-let containerVisualMode = 'cutaway';
+let containerVisualMode = 'ghost';
 let showSceneDimensions = true;
 let showOccupancyMarkers = true;
 let highlightedItemId = '';
@@ -6647,48 +6647,97 @@ function buildDetailedContainer(
     });
 
   const panelMat =
-  new THREE.MeshPhysicalMaterial({
-    color: 0x9eabb7,
-    transparent: true,
-    opacity: 0.10,
-    roughness: 0.35,
-    metalness: 0.15,
-    transmission: 0.15,
-    side: THREE.DoubleSide,
-    depthWrite: false
-  });
+    new THREE.MeshPhysicalMaterial({
+      color:
+        0xa7b3bf,
+
+      transparent:
+        containerVisualMode !==
+        'solid',
+
+      opacity:
+        containerVisualMode ===
+        'ghost'
+          ? 0.095
+          : containerVisualMode ===
+            'cutaway'
+            ? 0.24
+            : 1,
+
+      roughness:
+        0.34,
+
+      metalness:
+        0.22,
+
+      transmission:
+        containerVisualMode ===
+        'ghost'
+          ? 0.18
+          : 0,
+
+      side:
+        THREE.DoubleSide,
+
+      depthWrite:
+        containerVisualMode ===
+        'solid'
+    });
 
   const panelDarkMat =
     new THREE.MeshStandardMaterial({
       color:
-        0x687787,
+        0x6f7f8f,
+
+      transparent:
+        containerVisualMode ===
+        'ghost',
+
+      opacity:
+        containerVisualMode ===
+        'ghost'
+          ? 0.24
+          : 1,
 
       roughness:
-        0.48,
+        0.44,
 
       metalness:
-        0.58
+        0.58,
+
+      depthWrite:
+        containerVisualMode !==
+        'ghost'
     });
 
   const panelTransparentMat =
     new THREE.MeshPhysicalMaterial({
       color:
-        0x98a6b4,
+        0xaeb9c4,
 
       transparent:
         true,
 
       opacity:
         containerVisualMode ===
-          'cutaway'
+        'ghost'
           ? 0.07
-          : 0.18,
+          : containerVisualMode ===
+            'solid'
+            ? 0.34
+            : 0.12,
 
       roughness:
-        0.44,
+        0.30,
 
       metalness:
-        0.28,
+        0.16,
+
+      transmission:
+        containerVisualMode ===
+        'ghost'
+          ? 0.22
+          : 0.05,
 
       side:
         THREE.DoubleSide,
@@ -6702,11 +6751,25 @@ function buildDetailedContainer(
       color:
         0x96724f,
 
+      transparent:
+        containerVisualMode ===
+        'ghost',
+
+      opacity:
+        containerVisualMode ===
+        'ghost'
+          ? 0.42
+          : 1,
+
       roughness:
         0.90,
 
       metalness:
-        0.01
+        0.01,
+
+      depthWrite:
+        containerVisualMode !==
+        'ghost'
     });
 
   const timberLineMat =
@@ -6968,7 +7031,10 @@ function buildDetailedContainer(
             0.13,
             0.13
           ),
-          frameHighlightMat
+          containerVisualMode ===
+            'ghost'
+            ? panelDarkMat
+            : frameHighlightMat
         );
 
       casting.position.set(
@@ -7281,15 +7347,41 @@ function buildDetailedContainer(
   ===================================================== */
 
   const doorPanelMat =
-    new THREE.MeshStandardMaterial({
+    new THREE.MeshPhysicalMaterial({
       color:
-        0x718190,
+        0x8e9ba8,
+
+      transparent:
+        containerVisualMode !==
+        'solid',
+
+      opacity:
+        containerVisualMode ===
+        'ghost'
+          ? 0.08
+          : containerVisualMode ===
+            'cutaway'
+            ? 0.20
+            : 1,
 
       roughness:
-        0.44,
+        0.34,
 
       metalness:
-        0.58
+        0.24,
+
+      transmission:
+        containerVisualMode ===
+        'ghost'
+          ? 0.20
+          : 0,
+
+      side:
+        THREE.DoubleSide,
+
+      depthWrite:
+        containerVisualMode ===
+        'solid'
     });
 
   const doorFrameDepth =
@@ -8858,24 +8950,48 @@ function bindEvents() {
     .addEventListener(
       'click',
       event => {
+        const modes = [
+          'ghost',
+          'cutaway',
+          'solid'
+        ];
+
+        const currentIndex =
+          modes.indexOf(
+            containerVisualMode
+          );
+
         containerVisualMode =
-          containerVisualMode ===
-          'cutaway'
-            ? 'shell'
-            : 'cutaway';
+          modes[
+            (
+              currentIndex +
+              1
+            ) %
+            modes.length
+          ];
+
+        const labels = {
+          ghost:
+            'Ghost',
+
+          cutaway:
+            'Cutaway',
+
+          solid:
+            'Solid'
+        };
 
         event.currentTarget
           .textContent =
-            containerVisualMode ===
-            'cutaway'
-              ? 'Cutaway'
-              : 'Full Shell';
+            labels[
+              containerVisualMode
+            ];
 
         event.currentTarget
           .classList.toggle(
             'active-tool',
-            containerVisualMode ===
-            'cutaway'
+            containerVisualMode !==
+            'solid'
           );
 
         render3D(

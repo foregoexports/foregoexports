@@ -2482,3 +2482,22 @@ body.is-busy {
     contrast(1.025)
     saturate(1.02);
 }
+
+
+/* GHOST / TRANSPARENT CONTAINER VIEW */
+
+#shellModeBtn.active-tool {
+  border-color: #92b6ea;
+  background: #eef5ff;
+  color: #1c5cae;
+}
+
+.viewer {
+  background:
+    radial-gradient(
+      circle at 48% 38%,
+      #ffffff 0%,
+      #f7f9fc 52%,
+      #eef3f8 100%
+    );
+}
