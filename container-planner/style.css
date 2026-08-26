@@ -2022,3 +2022,148 @@ body.is-busy {
 .legend-item {
   font-weight: 750;
 }
+
+
+/* PER-PRODUCT PLACEMENT ENGINE */
+
+.placement-engine-note {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+
+  margin-bottom: 10px;
+  padding: 8px 11px;
+
+  border: 1px solid #cbdcf7;
+  border-radius: 8px;
+
+  background: #f6f9ff;
+}
+
+.placement-engine-note strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.placement-engine-note > span {
+  max-width: 720px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.product-placement-box {
+  margin-top: 9px;
+  padding-top: 9px;
+
+  border-top: 1px solid var(--border);
+}
+
+.product-placement-title {
+  margin-bottom: 6px;
+
+  color: #4d5c72;
+
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+
+.product-placement-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.placement-mode-btn {
+  min-height: 30px;
+  padding: 4px 3px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: white;
+  color: #4b5870;
+
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.placement-mode-btn.active {
+  border-color: #2f6fea;
+  background: #edf3ff;
+  color: #1758be;
+}
+
+.placement-select-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+
+  margin-top: 6px;
+}
+
+.placement-select-grid label {
+  min-width: 0;
+}
+
+.placement-select-grid label > span {
+  display: block;
+
+  margin-bottom: 3px;
+
+  color: var(--muted);
+
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.placement-select-grid select {
+  width: 100%;
+  min-height: 31px;
+
+  padding: 4px 5px;
+
+  border: 1px solid var(--border);
+  border-radius: 6px;
+
+  background: white;
+  color: var(--text);
+
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.placement-current-rule {
+  margin-top: 6px;
+
+  color: #5b6980;
+
+  font-size: 8px;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.placement-chip {
+  border-color: #bed3f7;
+  background: #f1f6ff;
+  color: #2f5f9e;
+}
+
+@media (max-width: 680px) {
+  .placement-engine-note {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .product-placement-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .placement-select-grid {
+    grid-template-columns: 1fr;
+  }
+}

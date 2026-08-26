@@ -92,6 +92,9 @@ let cargoGroup;
 let autoRotate = false;
 let currentView = '3d';
 
+let productPlacementRules = {};
+
+
 let loadingStrategy = {
   weightMode: 'auto',
   frontBackMode: 'back-first',
@@ -848,6 +851,9 @@ async function openPlan(planId) {
 
   plan = data.plan;
   items = data.items || [];
+
+  loadProductPlacementRules();
+  ensureProductPlacementRules();
 
   loadStrategyForPlan();
   ensureStrategySequence();
@@ -1654,14 +1660,12 @@ async function reloadPlan() {
 ========================================================= */
 
 function refreshEverything() {
-  ensureStrategySequence();
+  ensureProductPlacementRules();
   assignUniqueDisplayColours();
-  renderStrategyControls();
-  renderCustomSequence();
 
   /*
-    First calculate one shared physical packing result.
-    Dashboard totals are derived only from cartons actually placed.
+    One shared physical packing result is calculated first.
+    Product rules decide WHERE each cargo is allowed to go.
   */
   packingResult =
     calculatePacking();
@@ -2072,6 +2076,108 @@ function renderCargoList() {
           )}
         </strong>
       </div>
+
+      <div class="product-placement-box">
+        <div class="product-placement-title">
+          Placement Strategy
+        </div>
+
+        <div class="product-placement-tabs">
+          <button
+            class="placement-mode-btn ${getProductRule(item).placement === 'auto' ? 'active' : ''}"
+            data-placement="auto"
+            type="button"
+          >
+            Auto
+          </button>
+
+          <button
+            class="placement-mode-btn ${getProductRule(item).placement === 'floor-base' ? 'active' : ''}"
+            data-placement="floor-base"
+            type="button"
+          >
+            Floor Base
+          </button>
+
+          <button
+            class="placement-mode-btn ${getProductRule(item).placement === 'bottom-top' ? 'active' : ''}"
+            data-placement="bottom-top"
+            type="button"
+          >
+            Bottom→Top
+          </button>
+
+          <button
+            class="placement-mode-btn ${getProductRule(item).placement === 'top-layer' ? 'active' : ''}"
+            data-placement="top-layer"
+            type="button"
+          >
+            Top Layer
+          </button>
+        </div>
+
+        <div class="placement-select-grid">
+          <label>
+            <span>Position</span>
+            <select class="placement-position-select">
+              <option value="any" ${getProductRule(item).longitudinal === 'any' ? 'selected' : ''}>Any</option>
+              <option value="back" ${getProductRule(item).longitudinal === 'back' ? 'selected' : ''}>Back</option>
+              <option value="middle" ${getProductRule(item).longitudinal === 'middle' ? 'selected' : ''}>Middle</option>
+              <option value="front" ${getProductRule(item).longitudinal === 'front' ? 'selected' : ''}>Front / Doors</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Across Width</span>
+            <select class="placement-lateral-select">
+              <option value="any" ${getProductRule(item).lateral === 'any' ? 'selected' : ''}>Any</option>
+              <option value="left" ${getProductRule(item).lateral === 'left' ? 'selected' : ''}>Left</option>
+              <option value="center" ${getProductRule(item).lateral === 'center' ? 'selected' : ''}>Centre</option>
+              <option value="right" ${getProductRule(item).lateral === 'right' ? 'selected' : ''}>Right</option>
+            </select>
+          </label>
+
+          <label class="floor-coverage-field ${getProductRule(item).placement === 'floor-base' ? '' : 'hidden'}">
+            <span>Floor Coverage</span>
+            <select class="floor-coverage-select">
+              <option value="auto" ${getProductRule(item).floorCoverage === 'auto' ? 'selected' : ''}>Auto</option>
+              <option value="25" ${getProductRule(item).floorCoverage === '25' ? 'selected' : ''}>25%</option>
+              <option value="50" ${getProductRule(item).floorCoverage === '50' ? 'selected' : ''}>50%</option>
+              <option value="75" ${getProductRule(item).floorCoverage === '75' ? 'selected' : ''}>75%</option>
+              <option value="100" ${getProductRule(item).floorCoverage === '100' ? 'selected' : ''}>Full Floor</option>
+            </select>
+          </label>
+
+          <label class="support-field ${getProductRule(item).placement === 'top-layer' ? '' : 'hidden'}">
+            <span>Minimum Support</span>
+            <select class="support-select">
+              <option value="80" ${Number(getProductRule(item).supportPct) === 80 ? 'selected' : ''}>80%</option>
+              <option value="85" ${Number(getProductRule(item).supportPct) === 85 ? 'selected' : ''}>85%</option>
+              <option value="90" ${Number(getProductRule(item).supportPct) === 90 ? 'selected' : ''}>90%</option>
+              <option value="100" ${Number(getProductRule(item).supportPct) === 100 ? 'selected' : ''}>100%</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="placement-current-rule">
+          ${escapeHtml(
+            placementLabel(
+              getProductRule(
+                item
+              ).placement
+            )
+          )}
+          · ${escapeHtml(
+            getProductRule(
+              item
+            ).longitudinal === 'any'
+              ? 'Any position'
+              : getProductRule(
+                  item
+                ).longitudinal
+          )}
+        </div>
+      </div>
       `;
 
     card
@@ -2146,6 +2252,82 @@ function renderCargoList() {
           setOrientation(
             item.Item_ID,
             'upside'
+          )
+      );
+
+    card
+      .querySelectorAll(
+        '.placement-mode-btn'
+      )
+      .forEach(
+        button => {
+          button.addEventListener(
+            'click',
+            () =>
+              updateProductRule(
+                item.Item_ID,
+                'placement',
+                button.dataset.placement
+              )
+          );
+        }
+      );
+
+    card
+      .querySelector(
+        '.placement-position-select'
+      )
+      .addEventListener(
+        'change',
+        event =>
+          updateProductRule(
+            item.Item_ID,
+            'longitudinal',
+            event.target.value
+          )
+      );
+
+    card
+      .querySelector(
+        '.placement-lateral-select'
+      )
+      .addEventListener(
+        'change',
+        event =>
+          updateProductRule(
+            item.Item_ID,
+            'lateral',
+            event.target.value
+          )
+      );
+
+    card
+      .querySelector(
+        '.floor-coverage-select'
+      )
+      .addEventListener(
+        'change',
+        event =>
+          updateProductRule(
+            item.Item_ID,
+            'floorCoverage',
+            event.target.value
+          )
+      );
+
+    card
+      .querySelector(
+        '.support-select'
+      )
+      .addEventListener(
+        'change',
+        event =>
+          updateProductRule(
+            item.Item_ID,
+            'supportPct',
+            Number(
+              event.target.value
+            )
           )
       );
 
@@ -2397,6 +2579,691 @@ async function saveTotals(
    PACKING HEURISTIC
 ========================================================= */
 
+function productRulesStorageKey() {
+  return (
+    plan?.Plan_ID
+      ? `forego_product_placement_${plan.Plan_ID}`
+      : ''
+  );
+}
+
+
+function defaultProductRule(
+  item
+) {
+  return {
+    placement:
+      'auto',
+
+    floorCoverage:
+      'auto',
+
+    longitudinal:
+      'any',
+
+    lateral:
+      'any',
+
+    supportPct:
+      85
+  };
+}
+
+
+function loadProductPlacementRules() {
+  productPlacementRules = {};
+
+  const key =
+    productRulesStorageKey();
+
+  if (!key) {
+    return;
+  }
+
+  try {
+    const stored =
+      JSON.parse(
+        localStorage.getItem(
+          key
+        ) ||
+        '{}'
+      );
+
+    if (
+      stored &&
+      typeof stored ===
+      'object'
+    ) {
+      productPlacementRules =
+        stored;
+    }
+  } catch (error) {
+    console.warn(
+      'Unable to load product placement rules',
+      error
+    );
+  }
+}
+
+
+function saveProductPlacementRules() {
+  const key =
+    productRulesStorageKey();
+
+  if (!key) {
+    return;
+  }
+
+  localStorage.setItem(
+    key,
+    JSON.stringify(
+      productPlacementRules
+    )
+  );
+}
+
+
+function ensureProductPlacementRules() {
+  const currentIds =
+    new Set(
+      items.map(
+        item =>
+          item.Item_ID
+      )
+    );
+
+  Object.keys(
+    productPlacementRules
+  ).forEach(
+    itemId => {
+      if (
+        !currentIds.has(
+          itemId
+        )
+      ) {
+        delete productPlacementRules[
+          itemId
+        ];
+      }
+    }
+  );
+
+  items.forEach(
+    item => {
+      productPlacementRules[
+        item.Item_ID
+      ] = {
+        ...defaultProductRule(
+          item
+        ),
+        ...(
+          productPlacementRules[
+            item.Item_ID
+          ] ||
+          {}
+        )
+      };
+    }
+  );
+
+  saveProductPlacementRules();
+}
+
+
+function getProductRule(
+  item
+) {
+  return (
+    productPlacementRules[
+      item.Item_ID
+    ] ||
+    defaultProductRule(
+      item
+    )
+  );
+}
+
+
+function updateProductRule(
+  itemId,
+  field,
+  value
+) {
+  const item =
+    items.find(
+      cargo =>
+        cargo.Item_ID ===
+        itemId
+    );
+
+  if (!item) {
+    return;
+  }
+
+  productPlacementRules[
+    itemId
+  ] = {
+    ...defaultProductRule(
+      item
+    ),
+    ...(
+      productPlacementRules[
+        itemId
+      ] ||
+      {}
+    ),
+    [field]:
+      value
+  };
+
+  saveProductPlacementRules();
+
+  refreshEverything();
+
+  showToast(
+    'Placement rule updated.'
+  );
+}
+
+
+function placementLabel(
+  value
+) {
+  return {
+    auto:
+      'Auto',
+
+    'floor-base':
+      'Floor Base',
+
+    'bottom-top':
+      'Bottom → Top',
+
+    'top-layer':
+      'Top Layer'
+  }[
+    value
+  ] ||
+  'Auto';
+}
+
+
+function getPlacementSortedItems() {
+  const rank = {
+    'floor-base':
+      0,
+
+    'bottom-top':
+      1,
+
+    auto:
+      2,
+
+    'top-layer':
+      3
+  };
+
+  return [
+    ...items
+  ].sort(
+    (
+      a,
+      b
+    ) => {
+      const ar =
+        getProductRule(
+          a
+        );
+
+      const br =
+        getProductRule(
+          b
+        );
+
+      const rankDiff =
+        (
+          rank[
+            ar.placement
+          ] ??
+          2
+        ) -
+        (
+          rank[
+            br.placement
+          ] ??
+          2
+        );
+
+      if (
+        rankDiff !==
+        0
+      ) {
+        return rankDiff;
+      }
+
+      /*
+        Within the same placement group, heavier cartons go first.
+      */
+      const weightDiff =
+        Number(
+          b.Gross_Weight_Kg ||
+          0
+        ) -
+        Number(
+          a.Gross_Weight_Kg ||
+          0
+        );
+
+      if (
+        Math.abs(
+          weightDiff
+        ) >
+        0.0001
+      ) {
+        return weightDiff;
+      }
+
+      return (
+        Number(
+          a.Loading_Order ||
+          0
+        ) -
+        Number(
+          b.Loading_Order ||
+          0
+        )
+      );
+    }
+  );
+}
+
+
+function computePayloadTargets(
+  orderedItems,
+  maxPayloadKG
+) {
+  const targets =
+    new Map();
+
+  const totalRequestedWeight =
+    orderedItems.reduce(
+      (
+        sum,
+        item
+      ) =>
+        sum +
+        Number(
+          item.Quantity ||
+          0
+        ) *
+        Math.max(
+          0,
+          Number(
+            item.Gross_Weight_Kg ||
+            0
+          )
+        ),
+      0
+    );
+
+  if (
+    maxPayloadKG <=
+    0 ||
+    totalRequestedWeight <=
+    maxPayloadKG +
+    0.0001
+  ) {
+    orderedItems.forEach(
+      item =>
+        targets.set(
+          item.Item_ID,
+          Number(
+            item.Quantity ||
+            0
+          )
+        )
+    );
+
+    return targets;
+  }
+
+  /*
+    Fair payload reservation:
+    scale all requested product quantities by the same payload ratio.
+    This prevents the first/heaviest product from consuming 100% of
+    payload before the other requested products get any allocation.
+  */
+  const ratio =
+    maxPayloadKG /
+    totalRequestedWeight;
+
+  let usedWeight =
+    0;
+
+  orderedItems.forEach(
+    item => {
+      const requested =
+        Number(
+          item.Quantity ||
+          0
+        );
+
+      const weight =
+        Math.max(
+          0,
+          Number(
+            item.Gross_Weight_Kg ||
+            0
+          )
+        );
+
+      const target =
+        weight > 0
+          ? Math.min(
+              requested,
+              Math.floor(
+                requested *
+                ratio
+              )
+            )
+          : requested;
+
+      targets.set(
+        item.Item_ID,
+        target
+      );
+
+      usedWeight +=
+        target *
+        weight;
+    }
+  );
+
+  /*
+    Spend remaining payload one carton at a time, following the
+    user's placement order while preserving the fair initial share.
+  */
+  let progress =
+    true;
+
+  while (
+    progress
+  ) {
+    progress =
+      false;
+
+    for (
+      const item of
+      orderedItems
+    ) {
+      const current =
+        targets.get(
+          item.Item_ID
+        ) ||
+        0;
+
+      const requested =
+        Number(
+          item.Quantity ||
+          0
+        );
+
+      const weight =
+        Math.max(
+          0,
+          Number(
+            item.Gross_Weight_Kg ||
+            0
+          )
+        );
+
+      if (
+        current >=
+        requested
+      ) {
+        continue;
+      }
+
+      if (
+        weight <=
+        0 ||
+        usedWeight +
+        weight <=
+        maxPayloadKG +
+        0.0001
+      ) {
+        targets.set(
+          item.Item_ID,
+          current +
+          1
+        );
+
+        usedWeight +=
+          weight;
+
+        progress =
+          true;
+      }
+    }
+  }
+
+  return targets;
+}
+
+
+function floorCoverageRatio(
+  rule
+) {
+  if (
+    rule.floorCoverage ===
+    '25'
+  ) {
+    return 0.25;
+  }
+
+  if (
+    rule.floorCoverage ===
+    '50'
+  ) {
+    return 0.5;
+  }
+
+  if (
+    rule.floorCoverage ===
+    '75'
+  ) {
+    return 0.75;
+  }
+
+  if (
+    rule.floorCoverage ===
+    '100'
+  ) {
+    return 1;
+  }
+
+  return null;
+}
+
+
+function placementSupportRatio(
+  x,
+  y,
+  z,
+  l,
+  w,
+  placements
+) {
+  if (
+    z <=
+    0.001
+  ) {
+    return 1;
+  }
+
+  let supportedArea =
+    0;
+
+  placements.forEach(
+    placed => {
+      const top =
+        placed.z +
+        placed.h;
+
+      if (
+        Math.abs(
+          top -
+          z
+        ) >
+        1
+      ) {
+        return;
+      }
+
+      const overlapL =
+        Math.max(
+          0,
+          Math.min(
+            x + l,
+            placed.x +
+            placed.l
+          ) -
+          Math.max(
+            x,
+            placed.x
+          )
+        );
+
+      const overlapW =
+        Math.max(
+          0,
+          Math.min(
+            y + w,
+            placed.y +
+            placed.w
+          ) -
+          Math.max(
+            y,
+            placed.y
+          )
+        );
+
+      supportedArea +=
+        overlapL *
+        overlapW;
+    }
+  );
+
+  return Math.min(
+    1,
+    supportedArea /
+    Math.max(
+      1,
+      l *
+      w
+    )
+  );
+}
+
+
+function productLongitudinalScore(
+  space,
+  orientation,
+  container,
+  rule
+) {
+  if (
+    rule.longitudinal ===
+    'front'
+  ) {
+    return roundScore(
+      container.L -
+      (
+        space.x +
+        orientation.l
+      )
+    );
+  }
+
+  if (
+    rule.longitudinal ===
+    'middle'
+  ) {
+    return roundScore(
+      Math.abs(
+        (
+          space.x +
+          orientation.l /
+          2
+        ) -
+        container.L /
+        2
+      )
+    );
+  }
+
+  if (
+    rule.longitudinal ===
+    'back'
+  ) {
+    return roundScore(
+      space.x
+    );
+  }
+
+  return 0;
+}
+
+
+function productLateralScore(
+  space,
+  orientation,
+  container,
+  rule
+) {
+  if (
+    rule.lateral ===
+    'right'
+  ) {
+    return roundScore(
+      container.W -
+      (
+        space.y +
+        orientation.w
+      )
+    );
+  }
+
+  if (
+    rule.lateral ===
+    'center'
+  ) {
+    return roundScore(
+      Math.abs(
+        (
+          space.y +
+          orientation.w /
+          2
+        ) -
+        container.W /
+        2
+      )
+    );
+  }
+
+  if (
+    rule.lateral ===
+    'left'
+  ) {
+    return roundScore(
+      space.y
+    );
+  }
+
+  return 0;
+}
+
+
 function calculatePacking() {
   const container =
     selectedContainer();
@@ -2429,28 +3296,6 @@ function calculatePacking() {
       )
   };
 
-  /*
-    MIXED-ORIENTATION OPTIMISER
-    ---------------------------
-    Instead of choosing one orientation for an entire product,
-    the container is represented as a list of remaining free
-    rectangular spaces.
-
-    For every carton we:
-      1. Test every orientation currently allowed for that product.
-      2. Test it against every free space.
-      3. Pick the placement with the strongest fit score.
-      4. Split that free space into three non-overlapping spaces.
-      5. Repeat until all requested cartons are placed or no fit remains.
-
-    This means one product can be packed as, for example:
-      - 2 rows lengthwise
-      - 1 row floor-rotated
-      - a few cartons sideways in the remaining gap
-
-    Auto Best Fit allows all six box orientations and can mix them.
-  */
-
   let freeSpaces = [
     {
       x: 0,
@@ -2467,8 +3312,7 @@ function calculatePacking() {
 
   const maxPayloadKG =
     Number(
-      selectedContainer()
-        ?.Max_Payload_Kg ||
+      container.Max_Payload_Kg ||
       0
     );
 
@@ -2476,12 +3320,31 @@ function calculatePacking() {
     0;
 
   const sortedItems =
-    getStrategySortedItems();
+    getPlacementSortedItems();
 
-  sortedItems.forEach(item => {
+  const payloadTargets =
+    computePayloadTargets(
+      sortedItems,
+      maxPayloadKG
+    );
+
+  for (
+    const item of
+    sortedItems
+  ) {
     const requested =
       Number(
-        item.Quantity || 0
+        item.Quantity ||
+        0
+      );
+
+    const targetQuantity =
+      Math.min(
+        requested,
+        payloadTargets.get(
+          item.Item_ID
+        ) ??
+        requested
       );
 
     const orientations =
@@ -2489,7 +3352,10 @@ function calculatePacking() {
         item
       );
 
-    let fitted = 0;
+    const rule =
+      getProductRule(
+        item
+      );
 
     const packageWeightKG =
       Math.max(
@@ -2500,19 +3366,37 @@ function calculatePacking() {
         )
       );
 
+    let fitted =
+      0;
+
     let stopReason =
       '';
+
+    let floorAreaCovered =
+      0;
+
+    const containerFloorArea =
+      C.L *
+      C.W;
+
+    const coverageRatio =
+      floorCoverageRatio(
+        rule
+      );
+
+    const targetFloorArea =
+      coverageRatio ===
+      null
+        ? null
+        : containerFloorArea *
+          coverageRatio;
 
     const breakdownMap =
       new Map();
 
-    /*
-      A safety cap prevents a malformed input from locking the browser.
-      Normal export plans will be far below this.
-    */
     const maxIterations =
       Math.min(
-        requested,
+        targetQuantity,
         10000
       );
 
@@ -2535,19 +3419,96 @@ function calculatePacking() {
         break;
       }
 
+      let phase =
+        rule.placement;
+
+      /*
+        Floor Base:
+        keep placing on z=0 until the chosen floor coverage is met.
+        After that, remaining cartons may stack/use supported spaces.
+      */
+      if (
+        rule.placement ===
+        'floor-base'
+      ) {
+        if (
+          targetFloorArea ===
+          null
+        ) {
+          phase =
+            floorAreaCovered <
+            containerFloorArea
+              ? 'floor-base'
+              : 'auto';
+        } else {
+          phase =
+            floorAreaCovered <
+            targetFloorArea
+              ? 'floor-base'
+              : 'auto';
+        }
+      }
+
       const candidate =
         findBestMixedPlacement(
           freeSpaces,
           orientations,
           item,
-          C
+          C,
+          {
+            rule,
+            phase,
+            placements
+          }
         );
 
       if (!candidate) {
-        stopReason =
-          'space';
+        /*
+          For Floor Base, once the requested floor condition can no
+          longer be extended, allow remaining cartons to continue in
+          normal supported spaces.
+        */
+        if (
+          rule.placement ===
+          'floor-base' &&
+          phase ===
+          'floor-base'
+        ) {
+          const fallback =
+            findBestMixedPlacement(
+              freeSpaces,
+              orientations,
+              item,
+              C,
+              {
+                rule,
+                phase:
+                  'auto',
+                placements
+              }
+            );
 
-        break;
+          if (fallback) {
+            candidate.spaceIndex =
+              fallback.spaceIndex;
+            candidate.space =
+              fallback.space;
+            candidate.orientation =
+              fallback.orientation;
+            candidate.score =
+              fallback.score;
+          } else {
+            stopReason =
+              'space';
+
+            break;
+          }
+        } else {
+          stopReason =
+            'space';
+
+          break;
+        }
       }
 
       const placement = {
@@ -2581,7 +3542,10 @@ function calculatePacking() {
           candidate.orientation.key,
 
         orientationType:
-          candidate.orientation.type
+          candidate.orientation.type,
+
+        placementMode:
+          rule.placement
       };
 
       placements.push(
@@ -2592,6 +3556,15 @@ function calculatePacking() {
 
       loadedPayloadKG +=
         packageWeightKG;
+
+      if (
+        placement.z <=
+        0.001
+      ) {
+        floorAreaCovered +=
+          placement.l *
+          placement.w;
+      }
 
       const key =
         candidate.orientation.key;
@@ -2614,15 +3587,16 @@ function calculatePacking() {
                 item
               ),
 
-            dimensions:
-              {
-                l:
-                  candidate.orientation.l,
-                w:
-                  candidate.orientation.w,
-                h:
-                  candidate.orientation.h
-              },
+            dimensions: {
+              l:
+                candidate.orientation.l,
+
+              w:
+                candidate.orientation.w,
+
+              h:
+                candidate.orientation.h
+            },
 
             count:
               0
@@ -2645,15 +3619,6 @@ function calculatePacking() {
         pruneContainedSpaces(
           freeSpaces
         );
-
-      /*
-        Keep the free-space list ordered so the optimiser fills
-        nearer the loading end / floor first and produces a
-        practical, readable stuffing layout.
-      */
-      freeSpaces.sort(
-        freeSpacePrioritySort
-      );
     }
 
     const remaining =
@@ -2663,10 +3628,25 @@ function calculatePacking() {
         fitted
       );
 
+    if (
+      remaining >
+      0 &&
+      fitted >=
+      targetQuantity &&
+      targetQuantity <
+      requested
+    ) {
+      stopReason =
+        'payload-reserved';
+    }
+
     const breakdown =
       [...breakdownMap.values()]
         .sort(
-          (a, b) =>
+          (
+            a,
+            b
+          ) =>
             b.count -
             a.count
         );
@@ -2674,13 +3654,26 @@ function calculatePacking() {
     results.push({
       item,
       requested,
+      targetQuantity,
       fitted,
       remaining,
       breakdown,
       mixed:
-        breakdown.length > 1,
+        breakdown.length >
+        1,
 
       stopReason,
+
+      rule,
+
+      floorAreaCovered,
+
+      floorCoveragePct:
+        containerFloorArea
+          ? floorAreaCovered /
+            containerFloorArea *
+            100
+          : 0,
 
       loadedWeightKG:
         fitted *
@@ -2691,15 +3684,23 @@ function calculatePacking() {
       orientation:
         breakdown.length
           ? {
-              ...breakdown[0].dimensions,
+              ...breakdown[
+                0
+              ].dimensions,
+
               type:
-                breakdown[0].type,
+                breakdown[
+                  0
+                ].type,
+
               label:
-                breakdown[0].label
+                breakdown[
+                  0
+                ].label
             }
           : null
     });
-  });
+  }
 
   return {
     placements,
@@ -2715,9 +3716,26 @@ function findBestMixedPlacement(
   freeSpaces,
   orientations,
   item,
-  container
+  container,
+  context = {}
 ) {
-  let best = null;
+  let best =
+    null;
+
+  const rule =
+    context.rule ||
+    getProductRule(
+      item
+    );
+
+  const phase =
+    context.phase ||
+    rule.placement ||
+    'auto';
+
+  const placements =
+    context.placements ||
+    [];
 
   for (
     let spaceIndex = 0;
@@ -2746,7 +3764,12 @@ function findBestMixedPlacement(
           orientation,
           space,
           item,
-          container
+          container,
+          {
+            rule,
+            phase,
+            placements
+          }
         )
       ) {
         continue;
@@ -2757,7 +3780,12 @@ function findBestMixedPlacement(
           orientation,
           space,
           item,
-          container
+          container,
+          {
+            rule,
+            phase,
+            placements
+          }
         );
 
       if (
@@ -2786,48 +3814,159 @@ function orientationFitsSpace(
   orientation,
   space,
   item,
-  container
+  container,
+  context = {}
 ) {
   const EPS =
     0.001;
 
+  const rule =
+    context.rule ||
+    getProductRule(
+      item
+    );
+
+  const phase =
+    context.phase ||
+    rule.placement ||
+    'auto';
+
+  const placements =
+    context.placements ||
+    [];
+
   if (
-    orientation.l <= 0 ||
-    orientation.w <= 0 ||
-    orientation.h <= 0
+    orientation.l <=
+    0 ||
+    orientation.w <=
+    0 ||
+    orientation.h <=
+    0
   ) {
     return false;
   }
 
   if (
     orientation.l >
-      space.l + EPS ||
+      space.l +
+      EPS ||
     orientation.w >
-      space.w + EPS ||
+      space.w +
+      EPS ||
     orientation.h >
-      space.h + EPS
-  ) {
-    return false;
-  }
-
-  /*
-    Non-stackable cargo is restricted to the floor.
-  */
-  if (
-    !toBoolean(
-      item.Stackable
-    ) &&
-    space.z >
+      space.h +
       EPS
   ) {
     return false;
   }
 
+  if (
+    space.x +
+    orientation.l >
+    container.L +
+    EPS ||
+    space.y +
+    orientation.w >
+    container.W +
+    EPS ||
+    space.z +
+    orientation.h >
+    container.H +
+    EPS
+  ) {
+    return false;
+  }
+
   /*
-    Respect Max_Layers approximately even when mixed orientations
-    are enabled. A carton placed at z must not exceed the selected
-    orientation's permitted stack height.
+    FLOOR BASE PHASE:
+    only use floor-level free spaces.
   */
+  if (
+    phase ===
+    'floor-base' &&
+    space.z >
+    EPS
+  ) {
+    return false;
+  }
+
+  /*
+    TOP LAYER:
+    carton must not touch the floor and at least the configured
+    percentage of its footprint must be physically supported by
+    cartons directly below it.
+  */
+  if (
+    phase ===
+    'top-layer'
+  ) {
+    if (
+      space.z <=
+      EPS
+    ) {
+      return false;
+    }
+
+    const support =
+      placementSupportRatio(
+        space.x,
+        space.y,
+        space.z,
+        orientation.l,
+        orientation.w,
+        placements
+      );
+
+    if (
+      support <
+      Number(
+        rule.supportPct ||
+        85
+      ) /
+      100
+    ) {
+      return false;
+    }
+  }
+
+  /*
+    Any normal stacked placement above floor also requires support.
+    This prevents floating cartons created by mathematical gaps.
+  */
+  if (
+    space.z >
+    EPS &&
+    phase !==
+    'top-layer'
+  ) {
+    const support =
+      placementSupportRatio(
+        space.x,
+        space.y,
+        space.z,
+        orientation.l,
+        orientation.w,
+        placements
+      );
+
+    if (
+      support <
+      0.80
+    ) {
+      return false;
+    }
+  }
+
+  if (
+    !toBoolean(
+      item.Stackable
+    ) &&
+    space.z >
+    EPS
+  ) {
+    return false;
+  }
+
   const maxLayers =
     Number(
       item.Max_Layers ||
@@ -2852,36 +3991,6 @@ function orientationFitsSpace(
     }
   }
 
-  /*
-    Final guard against any floating-point overflow.
-  */
-  if (
-    space.x +
-    orientation.l >
-    container.L +
-    EPS
-  ) {
-    return false;
-  }
-
-  if (
-    space.y +
-    orientation.w >
-    container.W +
-    EPS
-  ) {
-    return false;
-  }
-
-  if (
-    space.z +
-    orientation.h >
-    container.H +
-    EPS
-  ) {
-    return false;
-  }
-
   return true;
 }
 
@@ -2890,22 +3999,19 @@ function mixedPlacementScore(
   orientation,
   space,
   item,
-  container
+  container,
+  context = {}
 ) {
-  /*
-    Lower score is better.
+  const rule =
+    context.rule ||
+    getProductRule(
+      item
+    );
 
-    Priority:
-      1. Fill the container from the door/end inward.
-      2. Keep cartons on the floor before building higher.
-      3. Minimise wasted width / height around the carton.
-      4. Prefer orientations that can tile the selected free space
-         with more cartons.
-      5. Use less leftover volume in the chosen free-space block.
-
-    The score is lexicographic, not a single weighted number,
-    which makes the behaviour more stable and predictable.
-  */
+  const phase =
+    context.phase ||
+    rule.placement ||
+    'auto';
 
   const fitAlongLength =
     Math.floor(
@@ -2974,68 +4080,90 @@ function mixedPlacementScore(
     space.l -
     orientation.l;
 
-  const spaceVolume =
-    space.l *
-    space.w *
-    space.h;
-
-  const boxVolume =
-    orientation.l *
-    orientation.w *
-    orientation.h;
-
-  const leftoverVolume =
-    spaceVolume -
-    boxVolume;
-
   const longitudinalScore =
-    strategyLongitudinalScore(
+    productLongitudinalScore(
       space,
       orientation,
-      container
+      container,
+      rule
     );
 
   const lateralScore =
-    strategyLateralScore(
+    productLateralScore(
       space,
       orientation,
-      container
+      container,
+      rule
     );
 
+  /*
+    Bottom → Top prioritises the chosen X/Y zone first, then stacks
+    upward in that zone. Other modes prefer the lowest level first.
+  */
+  if (
+    phase ===
+    'bottom-top'
+  ) {
+    return [
+      longitudinalScore,
+      lateralScore,
+      roundScore(
+        space.x
+      ),
+      roundScore(
+        space.y
+      ),
+      roundScore(
+        space.z
+      ),
+      roundScore(
+        wastedWidth
+      ),
+      roundScore(
+        wastedLength
+      ),
+      -localCapacity
+    ];
+  }
+
+  if (
+    phase ===
+    'top-layer'
+  ) {
+    return [
+      longitudinalScore,
+      lateralScore,
+      roundScore(
+        space.z
+      ),
+      roundScore(
+        wastedWidth
+      ),
+      roundScore(
+        wastedLength
+      ),
+      -localCapacity
+    ];
+  }
+
   return [
-    /*
-      Weight and stability always prefer the lowest available
-      free-space first unless the user explicitly selected
-      custom sequence instead of weight-based ordering.
-    */
-    strategyVerticalScore(
-      space
+    roundScore(
+      space.z
     ),
-
     longitudinalScore,
-
     lateralScore,
-
     roundScore(
       wastedWidth
     ),
-
     roundScore(
       wastedHeight
     ),
-
     -localCapacity,
-
     roundScore(
       wastedLength
-    ),
-
-    roundScore(
-      leftoverVolume
     )
   ];
 }
-
 
 
 function compareMixedScores(
@@ -3407,52 +4535,6 @@ function allowedOrientations(
     Number(
       item.Height_mm
     );
-
-  /*
-    Global Auto Mix can temporarily allow all six orientations
-    without changing the saved per-product orientation flags.
-  */
-  if (
-    loadingStrategy.orientationMode ===
-    'auto-mix'
-  ) {
-    const all = [
-      { l: L, w: W, h: H, type: 'default' },
-      { l: W, w: L, h: H, type: 'floor' },
-      { l: L, w: H, h: W, type: 'side' },
-      { l: H, w: L, h: W, type: 'side' },
-      { l: W, w: H, h: L, type: 'side' },
-      { l: H, w: W, h: L, type: 'side' }
-    ];
-
-    const uniqueAll =
-      new Map();
-
-    all.forEach(
-      orientation => {
-        const key =
-          `${orientation.l}-${orientation.w}-${orientation.h}`;
-
-        if (
-          !uniqueAll.has(
-            key
-          )
-        ) {
-          uniqueAll.set(
-            key,
-            {
-              ...orientation,
-              key
-            }
-          );
-        }
-      }
-    );
-
-    return [
-      ...uniqueAll.values()
-    ];
-  }
 
   const floorRotate =
     toBoolean(
@@ -4547,6 +5629,14 @@ function renderFitResults(result) {
               </strong>
 
               <div class="breakdown-chips">
+                <span class="breakdown-chip placement-chip">
+                  ${escapeHtml(
+                    placementLabel(
+                      row.rule?.placement ||
+                      'auto'
+                    )
+                  )}
+                </span>
                 ${breakdownHtml}
               </div>
             </div>
@@ -4583,7 +5673,7 @@ function renderFitResults(result) {
           <div class="fit-status">
             ${
               row.remaining > 0
-                ? `<span class="status-warning">${formatNumber(row.remaining)} left · ${row.stopReason === 'payload' ? 'Payload limit' : 'Space limit'}</span>`
+                ? `<span class="status-warning">${formatNumber(row.remaining)} left · ${row.stopReason === 'payload' || row.stopReason === 'payload-reserved' ? 'Payload allocation' : 'Space / placement limit'}</span>`
                 : `<span class="status-ok">ALL LOADED</span>`
             }
           </div>

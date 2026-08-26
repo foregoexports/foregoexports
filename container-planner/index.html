@@ -218,144 +218,15 @@
         only cartons that physically fit inside the shared container and stay within the maximum payload are counted as loaded.
       </div>
 
-      <!-- LOADING STRATEGY -->
-      <section class="strategy-panel">
-        <div class="strategy-header">
-          <div>
-            <div class="eyebrow">LOADING STRATEGY</div>
-            <h2>Placement & Weight Rules</h2>
-          </div>
-
-          <button id="resetStrategyBtn" class="secondary-btn" type="button">
-            Reset Strategy
-          </button>
+      <!-- PLACEMENT ENGINE NOTE -->
+      <section class="placement-engine-note">
+        <div>
+          <div class="eyebrow">PER-PRODUCT STUFFING</div>
+          <strong>Configure each product independently.</strong>
         </div>
-
-        <div class="strategy-grid">
-
-          <article class="strategy-card">
-            <div class="strategy-title">1. Weight Layering</div>
-
-            <label class="strategy-option">
-              <input type="radio" name="weightMode" value="auto" checked>
-              <span>
-                <strong>Auto — Heavy Below</strong>
-                <small>Heavier packages are packed first and lower.</small>
-              </span>
-            </label>
-
-            <label class="strategy-option">
-              <input type="radio" name="weightMode" value="floor-first">
-              <span>
-                <strong>Heavy Floor Coverage First</strong>
-                <small>Spread heavier cartons across the floor before stacking.</small>
-              </span>
-            </label>
-
-            <label class="strategy-option">
-              <input type="radio" name="weightMode" value="sequence">
-              <span>
-                <strong>Use Custom Sequence</strong>
-                <small>Follow your product priority instead of weight.</small>
-              </span>
-            </label>
-          </article>
-
-
-          <article class="strategy-card">
-            <div class="strategy-title">2. Front / Back Priority</div>
-
-            <label class="strategy-option">
-              <input type="radio" name="frontBackMode" value="back-first" checked>
-              <span>
-                <strong>Back → Front</strong>
-                <small>Start loading at the back wall and move towards the doors.</small>
-              </span>
-            </label>
-
-            <label class="strategy-option">
-              <input type="radio" name="frontBackMode" value="front-first">
-              <span>
-                <strong>Front → Back</strong>
-                <small>Start near the doors and move inward.</small>
-              </span>
-            </label>
-
-            <label class="strategy-option">
-              <input type="radio" name="frontBackMode" value="balanced">
-              <span>
-                <strong>Balanced</strong>
-                <small>Prefer central longitudinal placement where possible.</small>
-              </span>
-            </label>
-          </article>
-
-
-          <article class="strategy-card">
-            <div class="strategy-title">3. Left / Right Priority</div>
-
-            <label class="strategy-option">
-              <input type="radio" name="lateralMode" value="left-first" checked>
-              <span>
-                <strong>Left → Right</strong>
-                <small>Fill from the left wall across the width.</small>
-              </span>
-            </label>
-
-            <label class="strategy-option">
-              <input type="radio" name="lateralMode" value="right-first">
-              <span>
-                <strong>Right → Left</strong>
-                <small>Fill from the right wall across the width.</small>
-              </span>
-            </label>
-
-            <label class="strategy-option">
-              <input type="radio" name="lateralMode" value="balanced">
-              <span>
-                <strong>Balanced</strong>
-                <small>Prefer spaces closer to the centre line.</small>
-              </span>
-            </label>
-          </article>
-
-
-          <article class="strategy-card">
-            <div class="strategy-title">4. Orientation</div>
-
-            <label class="strategy-option">
-              <input type="radio" name="orientationMode" value="auto-mix" checked>
-              <span>
-                <strong>Auto Mix</strong>
-                <small>Mix Default, Floor and Sideways orientations to maximise fit.</small>
-              </span>
-            </label>
-
-            <label class="strategy-option">
-              <input type="radio" name="orientationMode" value="respect-item">
-              <span>
-                <strong>Respect Product Setting</strong>
-                <small>Use the orientation selected on each product card.</small>
-              </span>
-            </label>
-          </article>
-
-        </div>
-
-        <div class="custom-sequence-panel">
-          <div class="sequence-head">
-            <div>
-              <strong>Custom Product Sequence</strong>
-              <small>Top = load first. Use arrows to change order.</small>
-            </div>
-
-            <div id="strategySummary" class="strategy-summary">
-              Heavy Below · Back → Front · Left → Right · Auto Mix
-            </div>
-          </div>
-
-          <div id="customSequenceList" class="custom-sequence-list"></div>
-        </div>
+        <span>
+          Floor Base · Bottom → Top · Top Layer · Auto, with Front / Middle / Back and Left / Centre / Right preferences.
+        </span>
       </section>
 
       <!-- MAIN WORKSPACE -->
