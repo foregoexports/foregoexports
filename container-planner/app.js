@@ -6647,16 +6647,16 @@ function buildDetailedContainer(
     });
 
   const panelMat =
-    new THREE.MeshStandardMaterial({
-      color:
-        0x8796a5,
-
-      roughness:
-        0.52,
-
-      metalness:
-        0.54
-    });
+  new THREE.MeshPhysicalMaterial({
+    color: 0x9eabb7,
+    transparent: true,
+    opacity: 0.10,
+    roughness: 0.35,
+    metalness: 0.15,
+    transmission: 0.15,
+    side: THREE.DoubleSide,
+    depthWrite: false
+  });
 
   const panelDarkMat =
     new THREE.MeshStandardMaterial({
