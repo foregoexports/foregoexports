@@ -13,7 +13,6 @@
 
   <main class="app-shell">
 
-    <!-- HEADER -->
     <header class="app-header">
 
       <div>
@@ -35,29 +34,23 @@
     </header>
 
 
-    <!-- DASHBOARD VIEW -->
-    <section
-      id="dashboardView"
-      class="view"
-    >
+    <!-- DASHBOARD -->
+
+    <section id="dashboardView">
 
       <div class="dashboard">
 
         <section class="card">
 
           <div class="card-header">
-            <div>
-              <h2>Saved Plans</h2>
-              <p>
-                Continue an existing container stuffing plan.
-              </p>
-            </div>
+            <h2>Saved Plans</h2>
+            <p>
+              Continue an existing container stuffing plan.
+            </p>
           </div>
 
           <div id="plansList">
-            <p class="muted">
-              Loading plans...
-            </p>
+            <p class="muted">Loading plans...</p>
           </div>
 
         </section>
@@ -66,18 +59,14 @@
         <section class="card">
 
           <div class="card-header">
-            <div>
-              <h2>Container Presets</h2>
-              <p>
-                Available container specifications.
-              </p>
-            </div>
+            <h2>Container Presets</h2>
+            <p>
+              Available container specifications.
+            </p>
           </div>
 
           <div id="containersList">
-            <p class="muted">
-              Loading containers...
-            </p>
+            <p class="muted">Loading containers...</p>
           </div>
 
         </section>
@@ -88,9 +77,10 @@
 
 
     <!-- PLAN VIEW -->
+
     <section
       id="planView"
-      class="view hidden"
+      class="hidden"
     >
 
       <div class="plan-toolbar">
@@ -115,22 +105,18 @@
 
       <div class="plan-heading">
 
-        <div>
+        <p class="eyebrow">
+          STUFFING PLAN
+        </p>
 
-          <p class="eyebrow">
-            STUFFING PLAN
-          </p>
+        <h2 id="planTitle">
+          Loading Plan
+        </h2>
 
-          <h2 id="planTitle">
-            Loading Plan
-          </h2>
-
-          <p
-            id="planStatusText"
-            class="muted"
-          ></p>
-
-        </div>
+        <p
+          id="planStatusText"
+          class="muted"
+        ></p>
 
       </div>
 
@@ -142,12 +128,10 @@
         <section class="card">
 
           <div class="card-header">
-            <div>
-              <h2>Shipment Details</h2>
-              <p>
-                Basic information for this container.
-              </p>
-            </div>
+            <h2>Shipment Details</h2>
+            <p>
+              Basic information for this container.
+            </p>
           </div>
 
 
@@ -280,61 +264,194 @@
         </section>
 
 
-        <!-- CONTAINER SUMMARY -->
+        <!-- CONTAINER -->
 
         <aside class="card">
 
           <div class="card-header">
-            <div>
-              <h2>Container</h2>
-              <p>
-                Selected container specification.
-              </p>
-            </div>
+            <h2>Container</h2>
+            <p>
+              Selected container specification.
+            </p>
           </div>
 
           <div
             id="selectedContainerInfo"
             class="container-summary"
-          >
-          </div>
+          ></div>
 
         </aside>
 
       </div>
 
 
-      <section class="cargo-placeholder">
+      <!-- CARGO SUMMARY -->
 
-        <div>
+      <section class="cargo-section">
 
-          <p class="eyebrow">
-            NEXT
-          </p>
+        <div class="cargo-section-header">
 
-          <h2>Cargo & Stuffing</h2>
+          <div>
+            <p class="eyebrow">
+              CARGO
+            </p>
 
-          <p>
-            This is where we will add cartons, bags,
-            quantities, rotation rules and the 3D
-            container visualisation.
-          </p>
+            <h2>
+              Cargo & Stuffing
+            </h2>
+
+            <p class="muted">
+              Add every carton, crate, bag or pallet
+              planned for this container.
+            </p>
+          </div>
+
+          <button
+            id="addCargoBtn"
+            class="primary-btn"
+            type="button"
+          >
+            + Add Cargo
+          </button>
 
         </div>
 
-        <button
-          class="disabled-btn"
-          type="button"
-          disabled
+
+        <!-- TOTALS -->
+
+        <div class="stats-grid">
+
+          <div class="stat-card">
+
+            <div class="stat-label">
+              Packages
+            </div>
+
+            <div
+              id="totalPackages"
+              class="stat-value"
+            >
+              0
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div class="stat-label">
+              Gross Weight
+            </div>
+
+            <div
+              id="totalWeight"
+              class="stat-value"
+            >
+              0 kg
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div class="stat-label">
+              Cargo Volume
+            </div>
+
+            <div
+              id="totalCBM"
+              class="stat-value"
+            >
+              0 CBM
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div class="stat-label">
+              Nominal Volume
+            </div>
+
+            <div
+              id="volumePercent"
+              class="stat-value"
+            >
+              0%
+            </div>
+
+          </div>
+
+
+          <div class="stat-card">
+
+            <div class="stat-label">
+              Payload
+            </div>
+
+            <div
+              id="payloadPercent"
+              class="stat-value"
+            >
+              0%
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div
+          id="cargoList"
+          class="cargo-list"
         >
-          + Add Cargo
-        </button>
+
+          <div class="empty-state">
+            No cargo added yet.
+          </div>
+
+        </div>
+
+
+        <div class="stuffing-coming">
+
+          <div>
+
+            <p class="eyebrow">
+              NEXT STEP
+            </p>
+
+            <h3>
+              3D Stuffing Calculation
+            </h3>
+
+            <p>
+              Once the cargo data is complete, the
+              stuffing engine will calculate physical
+              placement, allowed orientations, layers,
+              weight limits and remaining capacity.
+            </p>
+
+          </div>
+
+          <button
+            class="disabled-btn"
+            type="button"
+            disabled
+          >
+            Optimise Stuffing
+          </button>
+
+        </div>
 
       </section>
 
     </section>
 
   </main>
+
 
 
   <!-- NEW PLAN MODAL -->
@@ -353,11 +470,12 @@
             FOREGO EXPORTS
           </p>
 
-          <h2>New Stuffing Plan</h2>
+          <h2>
+            New Stuffing Plan
+          </h2>
 
           <p>
             Create the container plan first.
-            Cargo can be added immediately afterwards.
           </p>
         </div>
 
@@ -365,7 +483,6 @@
           id="closeModalBtn"
           class="icon-btn"
           type="button"
-          aria-label="Close"
         >
           ×
         </button>
@@ -380,16 +497,14 @@
 
         <div class="field full">
 
-          <label for="buyerName">
+          <label>
             Buyer Name
           </label>
 
           <input
             id="buyerName"
             name="Buyer_Name"
-            type="text"
             required
-            placeholder="Buyer / company name"
           >
 
         </div>
@@ -397,15 +512,12 @@
 
         <div class="field">
 
-          <label for="invoiceRef">
+          <label>
             PO / Invoice Ref
           </label>
 
           <input
-            id="invoiceRef"
             name="PO_Invoice_Ref"
-            type="text"
-            placeholder="Optional"
           >
 
         </div>
@@ -413,7 +525,7 @@
 
         <div class="field">
 
-          <label for="containerType">
+          <label>
             Container
           </label>
 
@@ -421,26 +533,19 @@
             id="containerType"
             name="Container_Type"
             required
-          >
-            <option value="">
-              Select container
-            </option>
-          </select>
+          ></select>
 
         </div>
 
 
         <div class="field">
 
-          <label for="containerNumber">
+          <label>
             Container Number
           </label>
 
           <input
-            id="containerNumber"
             name="Container_Number"
-            type="text"
-            placeholder="Optional"
           >
 
         </div>
@@ -448,12 +553,11 @@
 
         <div class="field">
 
-          <label for="loadingDate">
+          <label>
             Loading Date
           </label>
 
           <input
-            id="loadingDate"
             name="Loading_Date"
             type="date"
           >
@@ -463,15 +567,12 @@
 
         <div class="field">
 
-          <label for="portLoading">
+          <label>
             Port of Loading
           </label>
 
           <input
-            id="portLoading"
             name="Port_of_Loading"
-            type="text"
-            placeholder="e.g. Chennai"
           >
 
         </div>
@@ -479,15 +580,12 @@
 
         <div class="field">
 
-          <label for="portDischarge">
+          <label>
             Port of Discharge
           </label>
 
           <input
-            id="portDischarge"
             name="Port_of_Discharge"
-            type="text"
-            placeholder="e.g. Singapore"
           >
 
         </div>
@@ -495,15 +593,13 @@
 
         <div class="field full">
 
-          <label for="notes">
+          <label>
             Notes
           </label>
 
           <textarea
-            id="notes"
             name="Notes"
             rows="3"
-            placeholder="Optional shipment notes"
           ></textarea>
 
         </div>
@@ -525,6 +621,319 @@
             type="submit"
           >
             Create Stuffing Plan
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+
+
+  <!-- CARGO MODAL -->
+
+  <div
+    id="cargoModal"
+    class="modal-backdrop hidden"
+  >
+
+    <div class="modal cargo-modal">
+
+      <div class="modal-header">
+
+        <div>
+
+          <p class="eyebrow">
+            CARGO ITEM
+          </p>
+
+          <h2 id="cargoModalTitle">
+            Add Cargo
+          </h2>
+
+          <p>
+            Enter the finished outer dimensions of
+            the package wherever possible.
+          </p>
+
+        </div>
+
+        <button
+          id="closeCargoBtn"
+          class="icon-btn"
+          type="button"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <form
+        id="cargoForm"
+        class="form-grid"
+      >
+
+        <input
+          id="cargoItemId"
+          type="hidden"
+        >
+
+
+        <div class="field full">
+
+          <label>
+            Product / Cargo Name
+          </label>
+
+          <input
+            id="cargoProduct"
+            name="Product_Name"
+            required
+            placeholder="e.g. Ponni Rice 5kg"
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Packing Type
+          </label>
+
+          <select
+            id="cargoPackingType"
+            name="Packing_Type"
+          >
+            <option>Carton</option>
+            <option>Crate</option>
+            <option>Bag</option>
+            <option>Sack</option>
+            <option>Pallet</option>
+          </select>
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Quantity
+          </label>
+
+          <input
+            id="cargoQuantity"
+            name="Quantity"
+            type="number"
+            min="1"
+            step="1"
+            required
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Length (mm)
+          </label>
+
+          <input
+            id="cargoLength"
+            name="Length_mm"
+            type="number"
+            min="1"
+            required
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Width (mm)
+          </label>
+
+          <input
+            id="cargoWidth"
+            name="Width_mm"
+            type="number"
+            min="1"
+            required
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Height (mm)
+          </label>
+
+          <input
+            id="cargoHeight"
+            name="Height_mm"
+            type="number"
+            min="1"
+            required
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Box Thickness (mm)
+          </label>
+
+          <input
+            id="cargoThickness"
+            name="Box_Thickness_mm"
+            type="number"
+            min="0"
+            value="0"
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Gross Weight / Package (kg)
+          </label>
+
+          <input
+            id="cargoWeight"
+            name="Gross_Weight_Kg"
+            type="number"
+            min="0"
+            step="0.01"
+            required
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Maximum Layers
+          </label>
+
+          <input
+            id="cargoMaxLayers"
+            name="Max_Layers"
+            type="number"
+            min="0"
+            value="0"
+          >
+
+          <div class="field-note">
+            0 = unrestricted
+          </div>
+
+        </div>
+
+
+        <div class="field full">
+
+          <label>
+            Orientation & Stacking
+          </label>
+
+          <div class="check-grid">
+
+            <label class="check-option">
+
+              <input
+                id="cargoRotate"
+                type="checkbox"
+                name="Rotate_Horizontal"
+                checked
+              >
+
+              <span>
+                Rotate horizontally
+              </span>
+
+            </label>
+
+
+            <label class="check-option">
+
+              <input
+                id="cargoSideways"
+                type="checkbox"
+                name="Turn_Sideways"
+              >
+
+              <span>
+                Turn sideways
+              </span>
+
+            </label>
+
+
+            <label class="check-option">
+
+              <input
+                id="cargoUpside"
+                type="checkbox"
+                name="Turn_Upside_Down"
+              >
+
+              <span>
+                Turn upside down
+              </span>
+
+            </label>
+
+
+            <label class="check-option">
+
+              <input
+                id="cargoStackable"
+                type="checkbox"
+                name="Stackable"
+                checked
+              >
+
+              <span>
+                Stackable
+              </span>
+
+            </label>
+
+          </div>
+
+        </div>
+
+
+        <div class="modal-actions full">
+
+          <button
+            id="cancelCargoBtn"
+            class="secondary-btn"
+            type="button"
+          >
+            Cancel
+          </button>
+
+          <button
+            id="saveCargoBtn"
+            class="primary-btn"
+            type="submit"
+          >
+            Add Cargo
           </button>
 
         </div>
