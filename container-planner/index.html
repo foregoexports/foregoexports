@@ -3,51 +3,540 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>Container Stuffing Planner | Forego Exports</title>
 
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="./style.css">
 </head>
 
 <body>
 
   <main class="app-shell">
 
+    <!-- HEADER -->
     <header class="app-header">
+
       <div>
         <p class="eyebrow">FOREGO EXPORTS</p>
         <h1>Container Stuffing Planner</h1>
+        <p class="header-subtitle">
+          Plan, visualise and document container loading.
+        </p>
       </div>
 
-      <button id="newPlanBtn">
+      <button
+        id="newPlanBtn"
+        class="primary-btn"
+        type="button"
+      >
         + New Stuffing Plan
       </button>
+
     </header>
 
 
-    <section class="dashboard">
+    <!-- DASHBOARD VIEW -->
+    <section
+      id="dashboardView"
+      class="view"
+    >
 
-      <div class="card">
-        <h2>Saved Plans</h2>
+      <div class="dashboard">
 
-        <div id="plansList">
-          Loading plans...
+        <section class="card">
+
+          <div class="card-header">
+            <div>
+              <h2>Saved Plans</h2>
+              <p>
+                Continue an existing container stuffing plan.
+              </p>
+            </div>
+          </div>
+
+          <div id="plansList">
+            <p class="muted">
+              Loading plans...
+            </p>
+          </div>
+
+        </section>
+
+
+        <section class="card">
+
+          <div class="card-header">
+            <div>
+              <h2>Container Presets</h2>
+              <p>
+                Available container specifications.
+              </p>
+            </div>
+          </div>
+
+          <div id="containersList">
+            <p class="muted">
+              Loading containers...
+            </p>
+          </div>
+
+        </section>
+
+      </div>
+
+    </section>
+
+
+    <!-- PLAN VIEW -->
+    <section
+      id="planView"
+      class="view hidden"
+    >
+
+      <div class="plan-toolbar">
+
+        <button
+          id="backBtn"
+          class="secondary-btn"
+          type="button"
+        >
+          ← All Plans
+        </button>
+
+        <div
+          id="saveStatus"
+          class="save-status"
+        >
+          Saved
         </div>
+
       </div>
 
 
-      <div class="card">
-        <h2>Container Presets</h2>
+      <div class="plan-heading">
 
-        <div id="containersList">
-          Loading containers...
+        <div>
+
+          <p class="eyebrow">
+            STUFFING PLAN
+          </p>
+
+          <h2 id="planTitle">
+            Loading Plan
+          </h2>
+
+          <p
+            id="planStatusText"
+            class="muted"
+          ></p>
+
         </div>
+
       </div>
+
+
+      <div class="plan-layout">
+
+        <!-- SHIPMENT DETAILS -->
+
+        <section class="card">
+
+          <div class="card-header">
+            <div>
+              <h2>Shipment Details</h2>
+              <p>
+                Basic information for this container.
+              </p>
+            </div>
+          </div>
+
+
+          <form
+            id="planEditForm"
+            class="form-grid"
+          >
+
+            <div class="field full">
+
+              <label for="editBuyerName">
+                Buyer Name
+              </label>
+
+              <input
+                id="editBuyerName"
+                name="Buyer_Name"
+                type="text"
+              >
+
+            </div>
+
+
+            <div class="field">
+
+              <label for="editInvoiceRef">
+                PO / Invoice Ref
+              </label>
+
+              <input
+                id="editInvoiceRef"
+                name="PO_Invoice_Ref"
+                type="text"
+              >
+
+            </div>
+
+
+            <div class="field">
+
+              <label for="editContainer">
+                Container
+              </label>
+
+              <select
+                id="editContainer"
+                name="Container_Type"
+              ></select>
+
+            </div>
+
+
+            <div class="field">
+
+              <label for="editContainerNumber">
+                Container Number
+              </label>
+
+              <input
+                id="editContainerNumber"
+                name="Container_Number"
+                type="text"
+                placeholder="Enter when available"
+              >
+
+            </div>
+
+
+            <div class="field">
+
+              <label for="editLoadingDate">
+                Loading Date
+              </label>
+
+              <input
+                id="editLoadingDate"
+                name="Loading_Date"
+                type="date"
+              >
+
+            </div>
+
+
+            <div class="field">
+
+              <label for="editPortLoading">
+                Port of Loading
+              </label>
+
+              <input
+                id="editPortLoading"
+                name="Port_of_Loading"
+                type="text"
+              >
+
+            </div>
+
+
+            <div class="field">
+
+              <label for="editPortDischarge">
+                Port of Discharge
+              </label>
+
+              <input
+                id="editPortDischarge"
+                name="Port_of_Discharge"
+                type="text"
+              >
+
+            </div>
+
+
+            <div class="field full">
+
+              <label for="editNotes">
+                Notes
+              </label>
+
+              <textarea
+                id="editNotes"
+                name="Notes"
+                rows="3"
+              ></textarea>
+
+            </div>
+
+          </form>
+
+        </section>
+
+
+        <!-- CONTAINER SUMMARY -->
+
+        <aside class="card">
+
+          <div class="card-header">
+            <div>
+              <h2>Container</h2>
+              <p>
+                Selected container specification.
+              </p>
+            </div>
+          </div>
+
+          <div
+            id="selectedContainerInfo"
+            class="container-summary"
+          >
+          </div>
+
+        </aside>
+
+      </div>
+
+
+      <section class="cargo-placeholder">
+
+        <div>
+
+          <p class="eyebrow">
+            NEXT
+          </p>
+
+          <h2>Cargo & Stuffing</h2>
+
+          <p>
+            This is where we will add cartons, bags,
+            quantities, rotation rules and the 3D
+            container visualisation.
+          </p>
+
+        </div>
+
+        <button
+          class="disabled-btn"
+          type="button"
+          disabled
+        >
+          + Add Cargo
+        </button>
+
+      </section>
 
     </section>
 
   </main>
 
-  <script src="app.js"></script>
+
+  <!-- NEW PLAN MODAL -->
+
+  <div
+    id="newPlanModal"
+    class="modal-backdrop hidden"
+  >
+
+    <div class="modal">
+
+      <div class="modal-header">
+
+        <div>
+          <p class="eyebrow">
+            FOREGO EXPORTS
+          </p>
+
+          <h2>New Stuffing Plan</h2>
+
+          <p>
+            Create the container plan first.
+            Cargo can be added immediately afterwards.
+          </p>
+        </div>
+
+        <button
+          id="closeModalBtn"
+          class="icon-btn"
+          type="button"
+          aria-label="Close"
+        >
+          ×
+        </button>
+
+      </div>
+
+
+      <form
+        id="newPlanForm"
+        class="form-grid"
+      >
+
+        <div class="field full">
+
+          <label for="buyerName">
+            Buyer Name
+          </label>
+
+          <input
+            id="buyerName"
+            name="Buyer_Name"
+            type="text"
+            required
+            placeholder="Buyer / company name"
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label for="invoiceRef">
+            PO / Invoice Ref
+          </label>
+
+          <input
+            id="invoiceRef"
+            name="PO_Invoice_Ref"
+            type="text"
+            placeholder="Optional"
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label for="containerType">
+            Container
+          </label>
+
+          <select
+            id="containerType"
+            name="Container_Type"
+            required
+          >
+            <option value="">
+              Select container
+            </option>
+          </select>
+
+        </div>
+
+
+        <div class="field">
+
+          <label for="containerNumber">
+            Container Number
+          </label>
+
+          <input
+            id="containerNumber"
+            name="Container_Number"
+            type="text"
+            placeholder="Optional"
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label for="loadingDate">
+            Loading Date
+          </label>
+
+          <input
+            id="loadingDate"
+            name="Loading_Date"
+            type="date"
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label for="portLoading">
+            Port of Loading
+          </label>
+
+          <input
+            id="portLoading"
+            name="Port_of_Loading"
+            type="text"
+            placeholder="e.g. Chennai"
+          >
+
+        </div>
+
+
+        <div class="field">
+
+          <label for="portDischarge">
+            Port of Discharge
+          </label>
+
+          <input
+            id="portDischarge"
+            name="Port_of_Discharge"
+            type="text"
+            placeholder="e.g. Singapore"
+          >
+
+        </div>
+
+
+        <div class="field full">
+
+          <label for="notes">
+            Notes
+          </label>
+
+          <textarea
+            id="notes"
+            name="Notes"
+            rows="3"
+            placeholder="Optional shipment notes"
+          ></textarea>
+
+        </div>
+
+
+        <div class="modal-actions full">
+
+          <button
+            id="cancelPlanBtn"
+            class="secondary-btn"
+            type="button"
+          >
+            Cancel
+          </button>
+
+          <button
+            id="createPlanBtn"
+            class="primary-btn"
+            type="submit"
+          >
+            Create Stuffing Plan
+          </button>
+
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+
+  <script src="./app.js"></script>
 
 </body>
 </html>
