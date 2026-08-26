@@ -2484,14 +2484,6 @@ body.is-busy {
 }
 
 
-/* GHOST / TRANSPARENT CONTAINER VIEW */
-
-#shellModeBtn.active-tool {
-  border-color: #92b6ea;
-  background: #eef5ff;
-  color: #1c5cae;
-}
-
 .viewer {
   background:
     radial-gradient(
@@ -2500,4 +2492,23 @@ body.is-busy {
       #f7f9fc 52%,
       #eef3f8 100%
     );
+}
+
+
+/* CLEAN LINE-FRAME CONTAINER */
+
+.viewer {
+  background:
+    radial-gradient(
+      circle at 50% 38%,
+      #ffffff 0%,
+      #f7f9fc 58%,
+      #eef3f8 100%
+    );
+}
+
+.viewer canvas {
+  filter:
+    contrast(1.01)
+    saturate(1.01);
 }

@@ -92,7 +92,6 @@ let cargoGroup;
 let autoRotate = false;
 let currentView = '3d';
 
-let containerVisualMode = 'ghost';
 let showSceneDimensions = true;
 let showOccupancyMarkers = true;
 let highlightedItemId = '';
@@ -6609,298 +6608,214 @@ function buildDetailedContainer(
   H
 ) {
   /*
-    REFERENCE-STYLE HIGH CUBE CONTAINER
-    -----------------------------------
-    - dark structural frame
-    - metallic corrugated roof / far wall / back wall
-    - realistic door end with locking bars
-    - timber floor
-    - open near-side cutaway in planning mode
-    - fuller translucent near-side wall in Full Shell mode
+    CLEAN ENGINEERING FRAME
+    -----------------------
+    The container is intentionally simplified so cargo remains the
+    visual priority.
+
+    Visible:
+      - corner posts
+      - top / bottom rails
+      - end frames
+      - subtle floor
+      - faint floor guides
+      - door-side frame marker
+
+    Hidden:
+      - solid side walls
+      - corrugated panels
+      - roof panels
+      - door leaves
+      - heavy vertical ribs
   */
 
   const group =
     new THREE.Group();
 
-  const frameMat =
+  const frameMaterial =
     new THREE.MeshStandardMaterial({
       color:
-        0x394858,
+        0x4f5d6d,
+
+      roughness:
+        0.46,
+
+      metalness:
+        0.38
+    });
+
+  const frameHighlightMaterial =
+    new THREE.MeshStandardMaterial({
+      color:
+        0x7f8c99,
 
       roughness:
         0.42,
 
       metalness:
-        0.72
+        0.30
     });
 
-  const frameHighlightMat =
+  const floorMaterial =
     new THREE.MeshStandardMaterial({
       color:
-        0x6e7e8e,
-
-      roughness:
-        0.38,
-
-      metalness:
-        0.72
-    });
-
-  const panelMat =
-    new THREE.MeshPhysicalMaterial({
-      color:
-        0xa7b3bf,
-
-      transparent:
-        containerVisualMode !==
-        'solid',
-
-      opacity:
-        containerVisualMode ===
-        'ghost'
-          ? 0.095
-          : containerVisualMode ===
-            'cutaway'
-            ? 0.24
-            : 1,
-
-      roughness:
-        0.34,
-
-      metalness:
-        0.22,
-
-      transmission:
-        containerVisualMode ===
-        'ghost'
-          ? 0.18
-          : 0,
-
-      side:
-        THREE.DoubleSide,
-
-      depthWrite:
-        containerVisualMode ===
-        'solid'
-    });
-
-  const panelDarkMat =
-    new THREE.MeshStandardMaterial({
-      color:
-        0x6f7f8f,
-
-      transparent:
-        containerVisualMode ===
-        'ghost',
-
-      opacity:
-        containerVisualMode ===
-        'ghost'
-          ? 0.24
-          : 1,
-
-      roughness:
-        0.44,
-
-      metalness:
-        0.58,
-
-      depthWrite:
-        containerVisualMode !==
-        'ghost'
-    });
-
-  const panelTransparentMat =
-    new THREE.MeshPhysicalMaterial({
-      color:
-        0xaeb9c4,
+        0xb6a084,
 
       transparent:
         true,
 
       opacity:
-        containerVisualMode ===
-        'ghost'
-          ? 0.07
-          : containerVisualMode ===
-            'solid'
-            ? 0.34
-            : 0.12,
-
-      roughness:
-        0.30,
-
-      metalness:
-        0.16,
-
-      transmission:
-        containerVisualMode ===
-        'ghost'
-          ? 0.22
-          : 0.05,
-
-      side:
-        THREE.DoubleSide,
-
-      depthWrite:
-        false
-    });
-
-  const timberMat =
-    new THREE.MeshStandardMaterial({
-      color:
-        0x96724f,
-
-      transparent:
-        containerVisualMode ===
-        'ghost',
-
-      opacity:
-        containerVisualMode ===
-        'ghost'
-          ? 0.42
-          : 1,
+        0.18,
 
       roughness:
         0.90,
 
       metalness:
-        0.01,
+        0.00,
 
       depthWrite:
-        containerVisualMode !==
-        'ghost'
+        false
     });
 
-  const timberLineMat =
-    new THREE.MeshStandardMaterial({
+  const guideMaterial =
+    new THREE.LineBasicMaterial({
       color:
-        0x5f4936,
+        0xaab4c0,
 
-      roughness:
-        0.94,
+      transparent:
+        true,
 
-      metalness:
-        0.00
-    });
-
-  const safetyMat =
-    new THREE.MeshStandardMaterial({
-      color:
-        0xd8a51e,
-
-      roughness:
-        0.55,
-
-      metalness:
-        0.15
+      opacity:
+        0.30
     });
 
   const rail =
-    0.065;
+    0.045;
 
   const post =
-    0.085;
-
-  const panelThickness =
-    0.024;
+    0.060;
 
 
-  /* =====================================================
-     TIMBER FLOOR
-  ===================================================== */
+  /* FLOOR */
 
   const floor =
     new THREE.Mesh(
       new THREE.BoxGeometry(
         L,
-        0.055,
+        0.020,
         W
       ),
-      timberMat
+      floorMaterial
     );
 
   floor.position.set(
     L /
       2,
-    -0.032,
+    -0.012,
     W /
       2
   );
-
-  floor.receiveShadow =
-    true;
 
   group.add(
     floor
   );
 
-  /*
-    Long timber board seams.
-    They run along container length just like a real container floor.
-  */
-  const boardCount =
-    14;
+
+  /* FLOOR GUIDES */
+
+  const guideRows =
+    10;
 
   for (
     let i = 1;
     i <
-    boardCount;
+    guideRows;
     i++
   ) {
     const z =
       W *
       i /
-      boardCount;
+      guideRows;
 
-    const seam =
-      new THREE.Mesh(
-        new THREE.BoxGeometry(
-          L,
-          0.007,
-          0.012
-        ),
-        timberLineMat
+    const line =
+      new THREE.Line(
+        new THREE.BufferGeometry()
+          .setFromPoints([
+            new THREE.Vector3(
+              0,
+              0.002,
+              z
+            ),
+            new THREE.Vector3(
+              L,
+              0.002,
+              z
+            )
+          ]),
+        guideMaterial
       );
 
-    seam.position.set(
-      L /
-        2,
-      0.003,
-      z
+    group.add(
+      line
     );
+  }
+
+  const guideCols =
+    24;
+
+  for (
+    let i = 1;
+    i <
+    guideCols;
+    i++
+  ) {
+    const x =
+      L *
+      i /
+      guideCols;
+
+    const line =
+      new THREE.Line(
+        new THREE.BufferGeometry()
+          .setFromPoints([
+            new THREE.Vector3(
+              x,
+              0.002,
+              0
+            ),
+            new THREE.Vector3(
+              x,
+              0.002,
+              W
+            )
+          ]),
+        guideMaterial
+      );
 
     group.add(
-      seam
+      line
     );
   }
 
 
-  /* =====================================================
-     MAIN CHASSIS / STRUCTURAL FRAME
-  ===================================================== */
+  /* LONGITUDINAL RAILS */
 
-  /*
-    Bottom and top side rails
-  */
   [
     0,
     W
   ].forEach(
     z => {
-      const bottomRail =
+      const bottom =
         new THREE.Mesh(
           new THREE.BoxGeometry(
-            L +
-              post *
-              2,
+            L,
             rail,
             rail
           ),
-          frameMat
+          frameMaterial
         );
 
-      bottomRail.position.set(
+      bottom.position.set(
         L /
           2,
         0,
@@ -6908,25 +6823,24 @@ function buildDetailedContainer(
       );
 
       group.add(
-        bottomRail
+        bottom
       );
 
-      const topRail =
-        bottomRail.clone();
+      const top =
+        bottom.clone();
 
-      topRail.position.y =
+      top.position.y =
         H;
 
       group.add(
-        topRail
+        top
       );
     }
   );
 
 
-  /*
-    Front/back top and bottom cross-members
-  */
+  /* END CROSS RAILS */
+
   [
     0,
     L
@@ -6937,19 +6851,17 @@ function buildDetailedContainer(
         H
       ].forEach(
         y => {
-          const crossRail =
+          const beam =
             new THREE.Mesh(
               new THREE.BoxGeometry(
                 rail,
                 rail,
-                W +
-                  post *
-                  2
+                W
               ),
-              frameMat
+              frameMaterial
             );
 
-          crossRail.position.set(
+          beam.position.set(
             x,
             y,
             W /
@@ -6957,7 +6869,7 @@ function buildDetailedContainer(
           );
 
           group.add(
-            crossRail
+            beam
           );
         }
       );
@@ -6965,9 +6877,8 @@ function buildDetailedContainer(
   );
 
 
-  /*
-    Corner posts
-  */
+  /* CORNER POSTS */
+
   [
     [0, 0],
     [0, W],
@@ -6980,17 +6891,17 @@ function buildDetailedContainer(
         z
       ]
     ) => {
-      const cornerPost =
+      const corner =
         new THREE.Mesh(
           new THREE.BoxGeometry(
             post,
             H,
             post
           ),
-          frameMat
+          frameMaterial
         );
 
-      cornerPost.position.set(
+      corner.position.set(
         x,
         H /
           2,
@@ -6998,15 +6909,14 @@ function buildDetailedContainer(
       );
 
       group.add(
-        cornerPost
+        corner
       );
     }
   );
 
 
-  /*
-    Corner castings: chunkier blocks at all eight corners.
-  */
+  /* CORNER CASTINGS */
+
   [
     [0, 0, 0],
     [0, 0, W],
@@ -7027,14 +6937,11 @@ function buildDetailedContainer(
       const casting =
         new THREE.Mesh(
           new THREE.BoxGeometry(
-            0.13,
-            0.13,
-            0.13
+            0.105,
+            0.105,
+            0.105
           ),
-          containerVisualMode ===
-            'ghost'
-            ? panelDarkMat
-            : frameHighlightMat
+          frameHighlightMaterial
         );
 
       casting.position.set(
@@ -7050,636 +6957,106 @@ function buildDetailedContainer(
   );
 
 
-  /* =====================================================
-     CORRUGATED FAR SIDE WALL
-  ===================================================== */
+  /* SUBTLE END-FRAME DIAGONALS */
 
-  const farWallBase =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        L,
-        H -
-          0.13,
-        panelThickness
-      ),
-      panelMat
-    );
+  [
+    0,
+    L
+  ].forEach(
+    x => {
+      const material =
+        new THREE.LineBasicMaterial({
+          color:
+            0x7f8c99,
 
-  farWallBase.position.set(
-    L /
-      2,
-    H /
-      2,
-    W +
-      0.012
-  );
+          transparent:
+            true,
 
-  group.add(
-    farWallBase
-  );
+          opacity:
+            0.45
+        });
 
-  const sideRibPitch =
-    0.185;
-
-  const sideRibCount =
-    Math.max(
-      24,
-      Math.floor(
-        L /
-        sideRibPitch
-      )
-    );
-
-  for (
-    let i = 1;
-    i <
-    sideRibCount;
-    i++
-  ) {
-    const x =
-      L *
-      i /
-      sideRibCount;
-
-    const rib =
-      new THREE.Mesh(
-        new THREE.BoxGeometry(
-          0.022,
-          H -
-            0.18,
-          0.045
-        ),
-        panelDarkMat
-      );
-
-    rib.position.set(
-      x,
-      H /
-        2,
-      W +
-        0.032
-    );
-
-    group.add(
-      rib
-    );
-  }
-
-
-  /* =====================================================
-     NEAR SIDE
-     CUTAWAY = open.
-     FULL SHELL = translucent corrugated wall.
-  ===================================================== */
-
-  if (
-    containerVisualMode !==
-    'cutaway'
-  ) {
-    const nearWall =
-      new THREE.Mesh(
-        new THREE.BoxGeometry(
-          L,
-          H -
-            0.13,
-          panelThickness
-        ),
-        panelTransparentMat
-      );
-
-    nearWall.position.set(
-      L /
-        2,
-      H /
-        2,
-      -0.012
-    );
-
-    group.add(
-      nearWall
-    );
-
-    for (
-      let i = 1;
-      i <
-      sideRibCount;
-      i++
-    ) {
-      const x =
-        L *
-        i /
-        sideRibCount;
-
-      const rib =
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            0.022,
-            H -
-              0.18,
-            0.035
-          ),
-          frameHighlightMat
+      const diag1 =
+        new THREE.Line(
+          new THREE.BufferGeometry()
+            .setFromPoints([
+              new THREE.Vector3(
+                x,
+                0,
+                0
+              ),
+              new THREE.Vector3(
+                x,
+                H,
+                W
+              )
+            ]),
+          material
         );
 
-      rib.position.set(
-        x,
-        H /
-          2,
-        -0.032
+      const diag2 =
+        new THREE.Line(
+          new THREE.BufferGeometry()
+            .setFromPoints([
+              new THREE.Vector3(
+                x,
+                H,
+                0
+              ),
+              new THREE.Vector3(
+                x,
+                0,
+                W
+              )
+            ]),
+          material
+        );
+
+      group.add(
+        diag1
       );
 
       group.add(
-        rib
+        diag2
       );
     }
-  }
+  );
 
 
-  /* =====================================================
-     CORRUGATED ROOF
-  ===================================================== */
+  /* DOOR-SIDE FRAME EMPHASIS */
 
-  const roofBase =
+  const doorTop =
     new THREE.Mesh(
       new THREE.BoxGeometry(
-        L,
-        panelThickness,
+        rail *
+          1.15,
+        rail *
+          1.15,
         W
       ),
-      panelMat
+      frameHighlightMaterial
     );
 
-  roofBase.position.set(
-    L /
-      2,
-    H +
-      0.012,
+  doorTop.position.set(
+    L,
+    H,
     W /
       2
   );
 
   group.add(
-    roofBase
+    doorTop
   );
 
-  /*
-    Roof corrugations run across the container width.
-  */
-  const roofRibPitch =
-    0.19;
+  const doorBottom =
+    doorTop.clone();
 
-  const roofRibCount =
-    Math.max(
-      24,
-      Math.floor(
-        L /
-        roofRibPitch
-      )
-    );
-
-  for (
-    let i = 1;
-    i <
-    roofRibCount;
-    i++
-  ) {
-    const x =
-      L *
-      i /
-      roofRibCount;
-
-    const roofRib =
-      new THREE.Mesh(
-        new THREE.BoxGeometry(
-          0.026,
-          0.038,
-          W -
-            0.05
-        ),
-        panelDarkMat
-      );
-
-    roofRib.position.set(
-      x,
-      H +
-        0.037,
-      W /
-        2
-    );
-
-    group.add(
-      roofRib
-    );
-  }
-
-
-  /* =====================================================
-     BACK WALL (x = 0)
-  ===================================================== */
-
-  const backWall =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        panelThickness,
-        H -
-          0.14,
-        W -
-          0.14
-      ),
-      panelMat
-    );
-
-  backWall.position.set(
-    -0.012,
-    H /
-      2,
-    W /
-      2
-  );
+  doorBottom.position.y =
+    0;
 
   group.add(
-    backWall
+    doorBottom
   );
-
-  /*
-    Vertical corrugation strips on back wall.
-  */
-  const backRibCount =
-    12;
-
-  for (
-    let i = 1;
-    i <
-    backRibCount;
-    i++
-  ) {
-    const z =
-      W *
-      i /
-      backRibCount;
-
-    const rib =
-      new THREE.Mesh(
-        new THREE.BoxGeometry(
-          0.04,
-          H -
-            0.20,
-          0.026
-        ),
-        panelDarkMat
-      );
-
-    rib.position.set(
-      -0.035,
-      H /
-        2,
-      z
-    );
-
-    group.add(
-      rib
-    );
-  }
-
-
-  /* =====================================================
-     DOOR END (x = L)
-  ===================================================== */
-
-  const doorPanelMat =
-    new THREE.MeshPhysicalMaterial({
-      color:
-        0x8e9ba8,
-
-      transparent:
-        containerVisualMode !==
-        'solid',
-
-      opacity:
-        containerVisualMode ===
-        'ghost'
-          ? 0.08
-          : containerVisualMode ===
-            'cutaway'
-            ? 0.20
-            : 1,
-
-      roughness:
-        0.34,
-
-      metalness:
-        0.24,
-
-      transmission:
-        containerVisualMode ===
-        'ghost'
-          ? 0.20
-          : 0,
-
-      side:
-        THREE.DoubleSide,
-
-      depthWrite:
-        containerVisualMode ===
-        'solid'
-    });
-
-  const doorFrameDepth =
-    0.055;
-
-  /*
-    Two solid door leaves
-  */
-  const doorWidth =
-    W /
-    2 -
-    0.055;
-
-  const leftDoor =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        0.030,
-        H -
-          0.16,
-        doorWidth
-      ),
-      doorPanelMat
-    );
-
-  leftDoor.position.set(
-    L +
-      0.018,
-    H /
-      2,
-    W *
-      0.25
-  );
-
-  group.add(
-    leftDoor
-  );
-
-  const rightDoor =
-    leftDoor.clone();
-
-  rightDoor.position.z =
-    W *
-    0.75;
-
-  group.add(
-    rightDoor
-  );
-
-
-  /*
-    Door corrugations
-  */
-  const doorRibCount =
-    7;
-
-  for (
-    let leaf = 0;
-    leaf <
-    2;
-    leaf++
-  ) {
-    const startZ =
-      leaf ===
-      0
-        ? 0
-        : W /
-          2;
-
-    const endZ =
-      leaf ===
-      0
-        ? W /
-          2
-        : W;
-
-    for (
-      let i = 1;
-      i <
-      doorRibCount;
-      i++
-    ) {
-      const z =
-        startZ +
-        (
-          endZ -
-          startZ
-        ) *
-        i /
-        doorRibCount;
-
-      const rib =
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            0.045,
-            H -
-              0.22,
-            0.020
-          ),
-          panelDarkMat
-        );
-
-      rib.position.set(
-        L +
-          0.045,
-        H /
-          2,
-        z
-      );
-
-      group.add(
-        rib
-      );
-    }
-  }
-
-
-  /*
-    Centre door seam
-  */
-  const centreSeam =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        doorFrameDepth,
-        H -
-          0.11,
-        0.035
-      ),
-      frameMat
-    );
-
-  centreSeam.position.set(
-    L +
-      0.045,
-    H /
-      2,
-    W /
-      2
-  );
-
-  group.add(
-    centreSeam
-  );
-
-
-  /*
-    Four locking bars
-  */
-  [
-    W *
-      0.16,
-    W *
-      0.35,
-    W *
-      0.65,
-    W *
-      0.84
-  ].forEach(
-    z => {
-      const bar =
-        new THREE.Mesh(
-          new THREE.CylinderGeometry(
-            0.018,
-            0.018,
-            H *
-              0.78,
-            10
-          ),
-          frameHighlightMat
-        );
-
-      bar.position.set(
-        L +
-          0.075,
-        H /
-          2,
-        z
-      );
-
-      group.add(
-        bar
-      );
-
-      /*
-        Locking handles
-      */
-      const handle =
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            0.055,
-            0.025,
-            0.14
-          ),
-          frameMat
-        );
-
-      handle.position.set(
-        L +
-          0.095,
-        H *
-          0.48,
-        z +
-          0.035
-      );
-
-      group.add(
-        handle
-      );
-    }
-  );
-
-
-  /* =====================================================
-     LOWER SIDE CROSS-MEMBERS / BASE DETAIL
-  ===================================================== */
-
-  const crossMemberCount =
-    18;
-
-  for (
-    let i = 1;
-    i <
-    crossMemberCount;
-    i++
-  ) {
-    const x =
-      L *
-      i /
-      crossMemberCount;
-
-    const member =
-      new THREE.Mesh(
-        new THREE.BoxGeometry(
-          0.035,
-          0.035,
-          W
-        ),
-        frameMat
-      );
-
-    member.position.set(
-      x,
-      -0.055,
-      W /
-        2
-    );
-
-    group.add(
-      member
-    );
-  }
-
-
-  /* =====================================================
-     SMALL SAFETY / CAUTION STRIP AT DOOR TOP
-  ===================================================== */
-
-  const stripeCount =
-    8;
-
-  for (
-    let i = 0;
-    i <
-    stripeCount;
-    i++
-  ) {
-    const stripe =
-      new THREE.Mesh(
-        new THREE.BoxGeometry(
-          0.040,
-          0.045,
-          W /
-            stripeCount *
-            0.72
-        ),
-        i %
-        2 ===
-        0
-          ? safetyMat
-          : frameMat
-      );
-
-    stripe.position.set(
-      L +
-        0.058,
-      H -
-        0.11,
-      (
-        i +
-        0.5
-      ) *
-      W /
-      stripeCount
-    );
-
-    group.add(
-      stripe
-    );
-  }
 
 
   return group;
@@ -8942,65 +8319,7 @@ function bindEvents() {
       );
     }
   );
-
-  document
-    .getElementById(
-      'shellModeBtn'
-    )
-    .addEventListener(
-      'click',
-      event => {
-        const modes = [
-          'ghost',
-          'cutaway',
-          'solid'
-        ];
-
-        const currentIndex =
-          modes.indexOf(
-            containerVisualMode
-          );
-
-        containerVisualMode =
-          modes[
-            (
-              currentIndex +
-              1
-            ) %
-            modes.length
-          ];
-
-        const labels = {
-          ghost:
-            'Ghost',
-
-          cutaway:
-            'Cutaway',
-
-          solid:
-            'Solid'
-        };
-
-        event.currentTarget
-          .textContent =
-            labels[
-              containerVisualMode
-            ];
-
-        event.currentTarget
-          .classList.toggle(
-            'active-tool',
-            containerVisualMode !==
-            'solid'
-          );
-
-        render3D(
-          packingResult
-        );
-      }
-    );
-
-  document
+document
     .getElementById(
       'dimensionToggleBtn'
     )
