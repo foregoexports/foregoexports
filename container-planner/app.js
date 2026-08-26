@@ -164,6 +164,27 @@ const viewerLoading =
   document.getElementById('viewerLoading');
 
 
+const globalLoader =
+  document.getElementById('globalLoader');
+
+const globalLoaderTitle =
+  document.getElementById('globalLoaderTitle');
+
+const globalLoaderMessage =
+  document.getElementById('globalLoaderMessage');
+
+const viewerActionLoader =
+  document.getElementById('viewerActionLoader');
+
+const viewerActionLoaderText =
+  document.getElementById('viewerActionLoaderText');
+
+const appToast =
+  document.getElementById('appToast');
+
+let toastTimer = null;
+
+
 /* =========================================================
    API
 ========================================================= */
@@ -466,6 +487,11 @@ async function logout() {
 ========================================================= */
 
 async function enterApp() {
+  showGlobalLoader(
+    'Loading your plans…',
+    'Preparing your saved container plans.'
+  );
+
   authScreen.classList.add('hidden');
   appShell.classList.remove('hidden');
 
@@ -498,6 +524,8 @@ async function enterApp() {
   await loadPlans();
 
   showPlansView();
+
+  hideGlobalLoader();
 }
 
 
@@ -647,8 +675,13 @@ function renderPlans() {
       .addEventListener(
         'click',
         () =>
-          openPlan(
-            savedPlan.Plan_ID
+          withButtonLoader(
+            card.querySelector('.open-plan'),
+            'Opening…',
+            () =>
+              openPlan(
+                savedPlan.Plan_ID
+              )
           )
       );
 
@@ -719,10 +752,17 @@ async function createNewPlan() {
     return;
   }
 
+  showGlobalLoader(
+    'Creating new plan…',
+    'Setting up container and defaults.'
+  );
+
   const container =
     containers[0];
 
   if (!container) {
+    hideGlobalLoader();
+
     alert(
       'No container preset is available.'
     );
@@ -741,6 +781,8 @@ async function createNewPlan() {
     });
 
   if (!result.ok) {
+    hideGlobalLoader();
+
     alert(
       result.message ||
       'Unable to create plan.'
@@ -754,10 +796,21 @@ async function createNewPlan() {
   );
 
   await loadPlans();
+
+  hideGlobalLoader();
+
+  showToast(
+    'New loading plan created.'
+  );
 }
 
 
 async function openPlan(planId) {
+  showGlobalLoader(
+    'Opening plan…',
+    'Loading container, cargo and saved settings.'
+  );
+
   const data =
     await apiGet(
       'getPlan',
@@ -768,6 +821,8 @@ async function openPlan(planId) {
     );
 
   if (!data.ok) {
+    hideGlobalLoader();
+
     alert(
       data.message ||
       'Unable to open plan.'
@@ -802,6 +857,8 @@ async function openPlan(planId) {
   updateCargoLabels();
   refreshEverything();
   showPlannerView();
+
+  hideGlobalLoader();
 }
 
 
@@ -813,6 +870,10 @@ async function savePlanSettings() {
   if (!plan) {
     return;
   }
+
+  showViewerLoader(
+    'Updating container settings…'
+  );
 
   setAutosaveState(
     'saving'
@@ -850,7 +911,14 @@ async function savePlanSettings() {
     setAutosaveState(
       'error'
     );
+
+    showToast(
+      'Unable to save plan settings.',
+      'error'
+    );
   }
+
+  hideViewerLoader();
 }
 
 
@@ -1025,6 +1093,16 @@ async function saveCargo(event) {
       editingId;
   }
 
+  showViewerLoader(
+    editingId
+      ? 'Updating cargo…'
+      : 'Adding cargo…'
+  );
+
+  showViewerLoader(
+    'Recalculating box orientation…'
+  );
+
   setAutosaveState('saving');
 
   const result =
@@ -1032,6 +1110,8 @@ async function saveCargo(event) {
 
   if (!result.ok) {
     setAutosaveState('error');
+
+    hideViewerLoader();
 
     alert(
       result.message ||
@@ -1047,6 +1127,14 @@ async function saveCargo(event) {
   await loadPlans();
 
   setAutosaveState('saved');
+
+  hideViewerLoader();
+
+  showToast(
+    editingId
+      ? 'Cargo updated.'
+      : 'Cargo added.'
+  );
 }
 
 
@@ -1112,6 +1200,7 @@ async function setOrientation(
 
   if (!result.ok) {
     setAutosaveState('error');
+    hideViewerLoader();
     alert(result.message);
     return;
   }
@@ -1120,6 +1209,12 @@ async function setOrientation(
   await loadPlans();
 
   setAutosaveState('saved');
+
+  hideViewerLoader();
+
+  showToast(
+    'Cargo orientation updated.'
+  );
 }
 
 
@@ -1249,6 +1344,10 @@ async function deleteCargo(itemId) {
     return;
   }
 
+  showViewerLoader(
+    'Removing cargo…'
+  );
+
   setAutosaveState('saving');
 
   const result =
@@ -1260,6 +1359,7 @@ async function deleteCargo(itemId) {
 
   if (!result.ok) {
     setAutosaveState('error');
+    hideViewerLoader();
     alert(result.message);
     return;
   }
@@ -1268,6 +1368,12 @@ async function deleteCargo(itemId) {
   await loadPlans();
 
   setAutosaveState('saved');
+
+  hideViewerLoader();
+
+  showToast(
+    'Cargo removed.'
+  );
 }
 
 
@@ -2997,6 +3103,11 @@ function preparePrint() {
     return;
   }
 
+  showGlobalLoader(
+    'Preparing loading plan…',
+    'Capturing the 3D view and print reference.'
+  );
+
   const image =
     document.getElementById(
       'print3dImage'
@@ -3092,10 +3203,207 @@ function preparePrint() {
         .join('');
 
   setTimeout(
-    () =>
-      window.print(),
-    150
+    () => {
+      hideGlobalLoader();
+      window.print();
+    },
+    220
   );
+}
+
+
+
+/* =========================================================
+   LOADERS / FEEDBACK
+========================================================= */
+
+function showGlobalLoader(
+  title = 'Loading…',
+  message = 'Please wait a moment.'
+) {
+  globalLoaderTitle.textContent =
+    title;
+
+  globalLoaderMessage.textContent =
+    message;
+
+  globalLoader.classList.remove(
+    'hidden'
+  );
+
+  document.body.classList.add(
+    'is-busy'
+  );
+}
+
+
+function hideGlobalLoader() {
+  globalLoader.classList.add(
+    'hidden'
+  );
+
+  document.body.classList.remove(
+    'is-busy'
+  );
+}
+
+
+function showViewerLoader(
+  message = 'Recalculating stuffing…'
+) {
+  viewerActionLoaderText.textContent =
+    message;
+
+  viewerActionLoader.classList.remove(
+    'hidden'
+  );
+}
+
+
+function hideViewerLoader() {
+  viewerActionLoader.classList.add(
+    'hidden'
+  );
+}
+
+
+function showToast(
+  message,
+  type = 'success',
+  duration = 2200
+) {
+  if (toastTimer) {
+    clearTimeout(
+      toastTimer
+    );
+  }
+
+  appToast.className =
+    `app-toast ${type}`;
+
+  appToast.textContent =
+    message;
+
+  appToast.classList.remove(
+    'hidden'
+  );
+
+  toastTimer =
+    setTimeout(
+      () => {
+        appToast.classList.add(
+          'hidden'
+        );
+      },
+      duration
+    );
+}
+
+
+function setElementBusy(
+  element,
+  busy,
+  busyText = '',
+  restoreText = ''
+) {
+  if (!element) {
+    return;
+  }
+
+  if (busy) {
+    if (
+      !element.dataset.originalText
+    ) {
+      element.dataset.originalText =
+        element.textContent;
+    }
+
+    element.disabled = true;
+
+    element.classList.add(
+      'button-loading'
+    );
+
+    if (busyText) {
+      element.textContent =
+        busyText;
+    }
+
+  } else {
+    element.disabled = false;
+
+    element.classList.remove(
+      'button-loading'
+    );
+
+    element.textContent =
+      restoreText ||
+      element.dataset.originalText ||
+      element.textContent;
+
+    delete element.dataset.originalText;
+  }
+}
+
+
+async function withGlobalLoader(
+  title,
+  message,
+  fn
+) {
+  showGlobalLoader(
+    title,
+    message
+  );
+
+  try {
+    return await fn();
+  } finally {
+    hideGlobalLoader();
+  }
+}
+
+
+async function withViewerLoader(
+  message,
+  fn
+) {
+  showViewerLoader(
+    message
+  );
+
+  try {
+    return await fn();
+  } finally {
+    hideViewerLoader();
+  }
+}
+
+
+async function withButtonLoader(
+  element,
+  busyText,
+  fn
+) {
+  const originalText =
+    element?.textContent || '';
+
+  setElementBusy(
+    element,
+    true,
+    busyText
+  );
+
+  try {
+    return await fn();
+  } finally {
+    setElementBusy(
+      element,
+      false,
+      '',
+      originalText
+    );
+  }
 }
 
 
@@ -3157,8 +3465,14 @@ function bindEvents() {
     .addEventListener(
       'click',
       async () => {
-        await loadPlans();
-        showPlansView();
+        await withGlobalLoader(
+          'Loading your plans…',
+          'Refreshing saved loading plans.',
+          async () => {
+            await loadPlans();
+            showPlansView();
+          }
+        );
       }
     );
 
@@ -3213,27 +3527,42 @@ function bindEvents() {
   containerSelect.addEventListener(
     'change',
     async () => {
-      await savePlanSettings();
-      refreshEverything();
-      await loadPlans();
+      await withViewerLoader(
+        'Changing container…',
+        async () => {
+          await savePlanSettings();
+          refreshEverything();
+          await loadPlans();
+        }
+      );
     }
   );
 
   dimensionUnit.addEventListener(
     'change',
     async () => {
-      await savePlanSettings();
-      updateCargoLabels();
-      refreshEverything();
+      await withViewerLoader(
+        'Changing display units…',
+        async () => {
+          await savePlanSettings();
+          updateCargoLabels();
+          refreshEverything();
+        }
+      );
     }
   );
 
   weightUnit.addEventListener(
     'change',
     async () => {
-      await savePlanSettings();
-      updateCargoLabels();
-      refreshEverything();
+      await withViewerLoader(
+        'Changing weight units…',
+        async () => {
+          await savePlanSettings();
+          updateCargoLabels();
+          refreshEverything();
+        }
+      );
     }
   );
 

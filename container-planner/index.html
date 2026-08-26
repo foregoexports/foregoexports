@@ -284,6 +284,11 @@
                 <div class="viewer-help">
                   Left Drag: Rotate · Right Drag: Pan · Scroll: Zoom
                 </div>
+
+                <div id="viewerActionLoader" class="viewer-action-loader hidden">
+                  <div class="spinner"></div>
+                  <span id="viewerActionLoaderText">Updating view…</span>
+                </div>
               </div>
 
               <aside class="viewer-sidepanel">
@@ -494,6 +499,21 @@
     </div>
   </div>
 
+
+
+  <!-- GLOBAL LOADER -->
+  <div id="globalLoader" class="global-loader hidden" aria-live="polite">
+    <div class="global-loader-card">
+      <div class="spinner spinner-large"></div>
+      <div>
+        <strong id="globalLoaderTitle">Loading…</strong>
+        <span id="globalLoaderMessage">Please wait a moment.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="appToast" class="app-toast hidden" aria-live="polite"></div>
 
   <script type="module" src="./app.js"></script>
 </body>
