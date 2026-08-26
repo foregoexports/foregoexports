@@ -14,9 +14,9 @@ const SESSION_KEY =
 
 
 const COLOURS = [
-  '#4F7DF3',
-  '#E8873A',
-  '#40A578',
+  '#2F6FEA',
+  '#F18722',
+  '#2DA66C',
   '#8B65D5',
   '#D95D78',
   '#29A8B8',
@@ -84,6 +84,7 @@ let controls;
 let cargoGroup;
 
 let autoRotate = false;
+let currentView = '3d';
 
 
 /* =========================================================
@@ -91,191 +92,112 @@ let autoRotate = false;
 ========================================================= */
 
 const authScreen =
-  document.getElementById(
-    'authScreen'
-  );
+  document.getElementById('authScreen');
 
 const appShell =
-  document.getElementById(
-    'appShell'
-  );
+  document.getElementById('appShell');
 
 const mobileForm =
-  document.getElementById(
-    'mobileForm'
-  );
+  document.getElementById('mobileForm');
 
 const otpForm =
-  document.getElementById(
-    'otpForm'
-  );
+  document.getElementById('otpForm');
 
 const mobileInput =
-  document.getElementById(
-    'mobileInput'
-  );
+  document.getElementById('mobileInput');
 
 const otpInput =
-  document.getElementById(
-    'otpInput'
-  );
+  document.getElementById('otpInput');
 
 const authMessage =
-  document.getElementById(
-    'authMessage'
-  );
+  document.getElementById('authMessage');
 
 const devOtpHint =
-  document.getElementById(
-    'devOtpHint'
-  );
+  document.getElementById('devOtpHint');
 
 const plansView =
-  document.getElementById(
-    'plansView'
-  );
+  document.getElementById('plansView');
 
 const plannerView =
-  document.getElementById(
-    'plannerView'
-  );
+  document.getElementById('plannerView');
 
 const plansGrid =
-  document.getElementById(
-    'plansGrid'
-  );
+  document.getElementById('plansGrid');
 
 const plansTitle =
-  document.getElementById(
-    'plansTitle'
-  );
+  document.getElementById('plansTitle');
 
 const currentUserName =
-  document.getElementById(
-    'currentUserName'
-  );
+  document.getElementById('currentUserName');
 
-const currentUserMobile =
-  document.getElementById(
-    'currentUserMobile'
-  );
+const currentUserRole =
+  document.getElementById('currentUserRole');
 
 const planNumber =
-  document.getElementById(
-    'planNumber'
-  );
+  document.getElementById('planNumber');
+
+const planUpdated =
+  document.getElementById('planUpdated');
 
 const containerSelect =
-  document.getElementById(
-    'containerSelect'
-  );
+  document.getElementById('containerSelect');
 
 const dimensionUnit =
-  document.getElementById(
-    'dimensionUnit'
-  );
+  document.getElementById('dimensionUnit');
 
 const weightUnit =
-  document.getElementById(
-    'weightUnit'
-  );
-
-const saveStatus =
-  document.getElementById(
-    'saveStatus'
-  );
+  document.getElementById('weightUnit');
 
 const cargoList =
-  document.getElementById(
-    'cargoList'
-  );
+  document.getElementById('cargoList');
 
 const legend =
-  document.getElementById(
-    'legend'
-  );
+  document.getElementById('legend');
 
 const fitResults =
-  document.getElementById(
-    'fitResults'
-  );
-
-const containerSpec =
-  document.getElementById(
-    'containerSpec'
-  );
+  document.getElementById('fitResults');
 
 const viewer =
-  document.getElementById(
-    'viewer'
-  );
+  document.getElementById('viewer');
 
 const viewerLoading =
-  document.getElementById(
-    'viewerLoading'
-  );
+  document.getElementById('viewerLoading');
 
 
 /* =========================================================
    API
 ========================================================= */
 
-async function apiGet(
-  action,
-  params = {}
-) {
-  const url =
-    new URL(API_URL);
+async function apiGet(action, params = {}) {
+  const url = new URL(API_URL);
 
-  url.searchParams.set(
-    'action',
-    action
-  );
+  url.searchParams.set('action', action);
 
-  Object.entries(params)
-    .forEach(
-      ([key, value]) => {
-        if (
-          value !== undefined &&
-          value !== null
-        ) {
-          url.searchParams.set(
-            key,
-            value
-          );
-        }
-      }
-    );
+  Object.entries(params).forEach(([key, value]) => {
+    if (
+      value !== undefined &&
+      value !== null
+    ) {
+      url.searchParams.set(key, value);
+    }
+  });
 
-  const response =
-    await fetch(
-      url.toString()
-    );
-
+  const response = await fetch(url.toString());
   return response.json();
 }
 
 
-async function apiPost(
-  payload
-) {
-  const response =
-    await fetch(
-      API_URL,
-      {
-        method: 'POST',
-
-        headers: {
-          'Content-Type':
-            'text/plain;charset=utf-8'
-        },
-
-        body:
-          JSON.stringify(
-            payload
-          )
-      }
-    );
+async function apiPost(payload) {
+  const response = await fetch(
+    API_URL,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify(payload)
+    }
+  );
 
   return response.json();
 }
@@ -306,8 +228,7 @@ async function start() {
       SESSION_KEY
     );
 
-    sessionToken =
-      '';
+    sessionToken = '';
   }
 
   showLogin();
@@ -319,28 +240,14 @@ async function start() {
 ========================================================= */
 
 function showLogin() {
-  authScreen.classList.remove(
-    'hidden'
-  );
+  authScreen.classList.remove('hidden');
+  appShell.classList.add('hidden');
 
-  appShell.classList.add(
-    'hidden'
-  );
+  mobileForm.classList.remove('hidden');
+  otpForm.classList.add('hidden');
 
-  mobileForm.classList.remove(
-    'hidden'
-  );
-
-  otpForm.classList.add(
-    'hidden'
-  );
-
-  authMessage.textContent =
-    '';
-
-  devOtpHint.classList.add(
-    'hidden'
-  );
+  authMessage.textContent = '';
+  devOtpHint.classList.add('hidden');
 }
 
 
@@ -348,11 +255,8 @@ async function restoreSession() {
   try {
     const result =
       await apiPost({
-        action:
-          'validateSession',
-
-        sessionToken:
-          sessionToken
+        action: 'validateSession',
+        sessionToken
       });
 
     if (
@@ -362,8 +266,7 @@ async function restoreSession() {
       return false;
     }
 
-    currentUser =
-      result.user;
+    currentUser = result.user;
 
     return true;
 
@@ -379,13 +282,11 @@ async function restoreSession() {
 
 
 async function requestOtp() {
-  authMessage.textContent =
-    '';
+  authMessage.textContent = '';
 
   let mobile =
     String(
-      mobileInput.value ||
-      ''
+      mobileInput.value || ''
     )
       .replace(/\D/g, '')
       .trim();
@@ -399,9 +300,7 @@ async function requestOtp() {
     return;
   }
 
-  pendingMobile =
-    '91' +
-    mobile;
+  pendingMobile = '91' + mobile;
 
   setButtonBusy(
     'sendOtpBtn',
@@ -412,11 +311,8 @@ async function requestOtp() {
   try {
     const result =
       await apiPost({
-        action:
-          'requestOtp',
-
-        mobile:
-          pendingMobile
+        action: 'requestOtp',
+        mobile: pendingMobile
       });
 
     if (!result.ok) {
@@ -430,42 +326,24 @@ async function requestOtp() {
     pendingOtpRequestId =
       result.otpRequestId;
 
-    mobileForm.classList.add(
-      'hidden'
-    );
-
-    otpForm.classList.remove(
-      'hidden'
-    );
+    mobileForm.classList.add('hidden');
+    otpForm.classList.remove('hidden');
 
     document
-      .getElementById(
-        'otpMobileLabel'
-      )
+      .getElementById('otpMobileLabel')
       .textContent =
         `+91 ${mobile}`;
 
-    otpInput.value =
-      '';
-
+    otpInput.value = '';
     otpInput.focus();
 
-    /*
-      Development mode:
-      current Apps Script returns testOtp.
-      This disappears automatically once DEV_RETURN_OTP=false.
-    */
     if (result.testOtp) {
       devOtpHint.textContent =
         `Development OTP: ${result.testOtp}`;
 
-      devOtpHint.classList.remove(
-        'hidden'
-      );
+      devOtpHint.classList.remove('hidden');
     } else {
-      devOtpHint.classList.add(
-        'hidden'
-      );
+      devOtpHint.classList.add('hidden');
     }
 
   } catch (error) {
@@ -485,20 +363,16 @@ async function requestOtp() {
 
 
 async function verifyOtp() {
-  authMessage.textContent =
-    '';
+  authMessage.textContent = '';
 
   const otp =
     String(
-      otpInput.value ||
-      ''
+      otpInput.value || ''
     )
       .replace(/\D/g, '')
       .trim();
 
-  if (
-    otp.length !== 6
-  ) {
+  if (otp.length !== 6) {
     authMessage.textContent =
       'Enter the 6-digit OTP.';
 
@@ -514,18 +388,10 @@ async function verifyOtp() {
   try {
     const result =
       await apiPost({
-        action:
-          'verifyOtp',
-
-        mobile:
-          pendingMobile,
-
-        otpRequestId:
-          pendingOtpRequestId,
-
-        otp:
-          otp,
-
+        action: 'verifyOtp',
+        mobile: pendingMobile,
+        otpRequestId: pendingOtpRequestId,
+        otp,
         deviceLabel:
           `${navigator.platform || 'Browser'} · ${navigator.userAgent.includes('Chrome') ? 'Chrome' : 'Web'}`
       });
@@ -541,11 +407,8 @@ async function verifyOtp() {
       return;
     }
 
-    sessionToken =
-      result.sessionToken;
-
-    currentUser =
-      result.user;
+    sessionToken = result.sessionToken;
+    currentUser = result.user;
 
     localStorage.setItem(
       SESSION_KEY,
@@ -574,11 +437,8 @@ async function logout() {
   try {
     if (sessionToken) {
       await apiPost({
-        action:
-          'logout',
-
-        sessionToken:
-          sessionToken
+        action: 'logout',
+        sessionToken
       });
     }
   } catch (error) {
@@ -592,17 +452,10 @@ async function logout() {
     SESSION_KEY
   );
 
-  sessionToken =
-    '';
-
-  currentUser =
-    null;
-
-  plan =
-    null;
-
-  items =
-    [];
+  sessionToken = '';
+  currentUser = null;
+  plan = null;
+  items = [];
 
   showLogin();
 }
@@ -613,30 +466,19 @@ async function logout() {
 ========================================================= */
 
 async function enterApp() {
-  authScreen.classList.add(
-    'hidden'
-  );
-
-  appShell.classList.remove(
-    'hidden'
-  );
+  authScreen.classList.add('hidden');
+  appShell.classList.remove('hidden');
 
   currentUserName.textContent =
-    currentUser?.name ||
-    'User';
+    currentUser?.name || 'User';
 
-  currentUserMobile.textContent =
-    formatMobile(
-      currentUser?.mobile ||
-      ''
-    );
+  currentUserRole.textContent =
+    currentUser?.role || 'User';
 
   if (
     String(
-      currentUser?.accessLevel ||
-      ''
-    ).toUpperCase() ===
-    'ALL'
+      currentUser?.accessLevel || ''
+    ).toUpperCase() === 'ALL'
   ) {
     plansTitle.textContent =
       'All Loading Plans';
@@ -675,19 +517,15 @@ async function loadPlans() {
     await apiGet(
       'getPlans',
       {
-        sessionToken:
-          sessionToken
+        sessionToken
       }
     );
 
   if (!result.ok) {
     if (
       String(
-        result.message ||
-        ''
-      ).includes(
-        'Authentication'
-      )
+        result.message || ''
+      ).includes('Authentication')
     ) {
       await logout();
       return;
@@ -706,9 +544,7 @@ async function loadPlans() {
     return;
   }
 
-  plans =
-    result.plans || [];
-
+  plans = result.plans || [];
   renderPlans();
 }
 
@@ -725,142 +561,115 @@ function renderPlans() {
     return;
   }
 
-  plansGrid.innerHTML =
-    '';
+  plansGrid.innerHTML = '';
 
-  plans.forEach(
-    savedPlan => {
-      const container =
-        containers.find(
-          c =>
-            c.Container_ID ===
-            savedPlan.Container_Type
-        );
-
-      const card =
-        document.createElement(
-          'article'
-        );
-
-      card.className =
-        'plan-card';
-
-      card.innerHTML =
-        `
-        <div class="plan-card-top">
-
-          <div class="plan-card-id">
-            ${escapeHtml(
-              savedPlan.Plan_ID
-            )}
-          </div>
-
-          <div class="plan-status">
-            ${escapeHtml(
-              savedPlan.Status ||
-              'Draft'
-            )}
-          </div>
-
-        </div>
-
-
-        <div class="plan-card-meta">
-
-          <div>
-            Container
-            <strong>
-              ${escapeHtml(
-                container?.Container_Name ||
-                savedPlan.Container_Type ||
-                '—'
-              )}
-            </strong>
-          </div>
-
-          <div>
-            Packages
-            <strong>
-              ${formatNumber(
-                savedPlan.Total_Packages
-              )}
-            </strong>
-          </div>
-
-          <div>
-            Volume Used
-            <strong>
-              ${formatDecimal(
-                savedPlan.Container_Volume_Used_Pct,
-                1
-              )}%
-            </strong>
-          </div>
-
-          <div>
-            Updated
-            <strong>
-              ${formatShortDate(
-                savedPlan.Updated_At ||
-                savedPlan.Created_At
-              )}
-            </strong>
-          </div>
-
-        </div>
-
-
-        <button
-          class="primary-btn open-plan"
-          type="button"
-        >
-          Open Plan
-        </button>
-        `;
-
-      card
-        .querySelector(
-          '.open-plan'
-        )
-        .addEventListener(
-          'click',
-          () =>
-            openPlan(
-              savedPlan.Plan_ID
-            )
-        );
-
-      plansGrid.appendChild(
-        card
+  plans.forEach(savedPlan => {
+    const container =
+      containers.find(
+        c =>
+          c.Container_ID ===
+          savedPlan.Container_Type
       );
-    }
-  );
+
+    const card =
+      document.createElement(
+        'article'
+      );
+
+    card.className = 'plan-card';
+
+    card.innerHTML =
+      `
+      <div class="plan-card-top">
+        <div class="plan-card-id">
+          ${escapeHtml(savedPlan.Plan_ID)}
+        </div>
+
+        <div class="plan-status">
+          ${escapeHtml(
+            savedPlan.Status || 'Draft'
+          )}
+        </div>
+      </div>
+
+      <div class="plan-card-meta">
+        <div>
+          Container
+          <strong>
+            ${escapeHtml(
+              container?.Container_Name ||
+              savedPlan.Container_Type ||
+              '—'
+            )}
+          </strong>
+        </div>
+
+        <div>
+          Packages
+          <strong>
+            ${formatNumber(
+              savedPlan.Total_Packages
+            )}
+          </strong>
+        </div>
+
+        <div>
+          Volume Used
+          <strong>
+            ${formatDecimal(
+              savedPlan.Container_Volume_Used_Pct,
+              1
+            )}%
+          </strong>
+        </div>
+
+        <div>
+          Updated
+          <strong>
+            ${formatShortDate(
+              savedPlan.Updated_At ||
+              savedPlan.Created_At
+            )}
+          </strong>
+        </div>
+      </div>
+
+      <button
+        class="primary-btn open-plan"
+        type="button"
+      >
+        Open Plan
+      </button>
+      `;
+
+    card
+      .querySelector('.open-plan')
+      .addEventListener(
+        'click',
+        () =>
+          openPlan(
+            savedPlan.Plan_ID
+          )
+      );
+
+    plansGrid.appendChild(card);
+  });
 }
 
 
 function showPlansView() {
-  plannerView.classList.add(
-    'hidden'
-  );
-
-  plansView.classList.remove(
-    'hidden'
-  );
+  plannerView.classList.add('hidden');
+  plansView.classList.remove('hidden');
 }
 
 
 function showPlannerView() {
-  plansView.classList.add(
-    'hidden'
-  );
-
-  plannerView.classList.remove(
-    'hidden'
-  );
+  plansView.classList.add('hidden');
+  plannerView.classList.remove('hidden');
 
   setTimeout(
     resizeViewer,
-    50
+    60
   );
 }
 
@@ -923,20 +732,12 @@ async function createNewPlan() {
 
   const result =
     await apiPost({
-      action:
-        'createPlan',
-
-      sessionToken:
-        sessionToken,
-
+      action: 'createPlan',
+      sessionToken,
       Container_Type:
         container.Container_ID,
-
-      Dimension_Unit:
-        'in',
-
-      Weight_Unit:
-        'kg'
+      Dimension_Unit: 'in',
+      Weight_Unit: 'kg'
     });
 
   if (!result.ok) {
@@ -956,18 +757,13 @@ async function createNewPlan() {
 }
 
 
-async function openPlan(
-  planId
-) {
+async function openPlan(planId) {
   const data =
     await apiGet(
       'getPlan',
       {
-        planId:
-          planId,
-
-        sessionToken:
-          sessionToken
+        planId,
+        sessionToken
       }
     );
 
@@ -980,14 +776,17 @@ async function openPlan(
     return;
   }
 
-  plan =
-    data.plan;
-
-  items =
-    data.items || [];
+  plan = data.plan;
+  items = data.items || [];
 
   planNumber.textContent =
     plan.Plan_ID;
+
+  planUpdated.textContent =
+    `Updated ${formatShortDateTime(
+      plan.Updated_At ||
+      plan.Created_At
+    )}`;
 
   containerSelect.value =
     plan.Container_Type ||
@@ -995,20 +794,13 @@ async function openPlan(
     '';
 
   dimensionUnit.value =
-    plan.Dimension_Unit ||
-    'in';
+    plan.Dimension_Unit || 'in';
 
   weightUnit.value =
-    plan.Weight_Unit ||
-    'kg';
+    plan.Weight_Unit || 'kg';
 
   updateCargoLabels();
-
-  saveStatus.textContent =
-    '✓ Saved';
-
   refreshEverything();
-
   showPlannerView();
 }
 
@@ -1022,26 +814,20 @@ async function savePlanSettings() {
     return;
   }
 
-  saveStatus.textContent =
-    'Saving...';
+  setAutosaveState(
+    'saving'
+  );
 
   const result =
     await apiPost({
-      action:
-        'updatePlan',
-
-      sessionToken:
-        sessionToken,
-
+      action: 'updatePlan',
+      sessionToken,
       Plan_ID:
         plan.Plan_ID,
-
       Container_Type:
         containerSelect.value,
-
       Dimension_Unit:
         dimensionUnit.value,
-
       Weight_Unit:
         weightUnit.value
     });
@@ -1056,12 +842,14 @@ async function savePlanSettings() {
     plan.Weight_Unit =
       weightUnit.value;
 
-    saveStatus.textContent =
-      '✓ Saved';
+    setAutosaveState(
+      'saved'
+    );
 
   } else {
-    saveStatus.textContent =
-      'Save failed';
+    setAutosaveState(
+      'error'
+    );
   }
 }
 
@@ -1071,24 +859,16 @@ async function savePlanSettings() {
 ========================================================= */
 
 const cargoModal =
-  document.getElementById(
-    'cargoModal'
-  );
+  document.getElementById('cargoModal');
 
 const cargoForm =
-  document.getElementById(
-    'cargoForm'
-  );
+  document.getElementById('cargoForm');
 
 const cargoItemId =
-  document.getElementById(
-    'cargoItemId'
-  );
+  document.getElementById('cargoItemId');
 
 const cargoModalTitle =
-  document.getElementById(
-    'cargoModalTitle'
-  );
+  document.getElementById('cargoModalTitle');
 
 
 function openNewCargoModal() {
@@ -1097,30 +877,19 @@ function openNewCargoModal() {
   }
 
   cargoForm.reset();
-
-  cargoItemId.value =
-    '';
+  cargoItemId.value = '';
 
   document
-    .getElementById(
-      'cargoRotate'
-    )
-    .checked =
-      true;
+    .getElementById('cargoRotate')
+    .checked = true;
 
   document
-    .getElementById(
-      'cargoStackable'
-    )
-    .checked =
-      true;
+    .getElementById('cargoStackable')
+    .checked = true;
 
   document
-    .getElementById(
-      'cargoMaxLayers'
-    )
-    .value =
-      0;
+    .getElementById('cargoMaxLayers')
+    .value = 0;
 
   cargoModalTitle.textContent =
     'Add Product';
@@ -1144,9 +913,7 @@ function closeCargoModal() {
    SAVE CARGO
 ========================================================= */
 
-async function saveCargo(
-  event
-) {
+async function saveCargo(event) {
   event.preventDefault();
 
   const editingId =
@@ -1165,111 +932,83 @@ async function saveCargo(
         ? 'updateItem'
         : 'addItem',
 
-    sessionToken:
-      sessionToken,
-
+    sessionToken,
     Plan_ID:
       plan.Plan_ID,
 
     Product_Name:
       document
-        .getElementById(
-          'cargoProduct'
-        )
+        .getElementById('cargoProduct')
         .value
         .trim(),
 
     Packing_Type:
       document
-        .getElementById(
-          'cargoPackingType'
-        )
+        .getElementById('cargoPackingType')
         .value,
 
     Quantity:
       Number(
         document
-          .getElementById(
-            'cargoQuantity'
-          )
+          .getElementById('cargoQuantity')
           .value
       ),
 
     Length_mm:
       dimensionToMM(
         document
-          .getElementById(
-            'cargoLength'
-          )
+          .getElementById('cargoLength')
           .value
       ),
 
     Width_mm:
       dimensionToMM(
         document
-          .getElementById(
-            'cargoWidth'
-          )
+          .getElementById('cargoWidth')
           .value
       ),
 
     Height_mm:
       dimensionToMM(
         document
-          .getElementById(
-            'cargoHeight'
-          )
+          .getElementById('cargoHeight')
           .value
       ),
 
     Gross_Weight_Kg:
       weightToKG(
         document
-          .getElementById(
-            'cargoWeight'
-          )
+          .getElementById('cargoWeight')
           .value
       ),
 
-    Box_Thickness_mm:
-      0,
+    Box_Thickness_mm: 0,
 
     Max_Layers:
       Number(
         document
-          .getElementById(
-            'cargoMaxLayers'
-          )
-          .value ||
-        0
+          .getElementById('cargoMaxLayers')
+          .value || 0
       ),
 
     Rotate_Horizontal:
       document
-        .getElementById(
-          'cargoRotate'
-        )
+        .getElementById('cargoRotate')
         .checked,
 
     Turn_Sideways:
       document
-        .getElementById(
-          'cargoSideways'
-        )
+        .getElementById('cargoSideways')
         .checked,
 
     Turn_Upside_Down:
       document
-        .getElementById(
-          'cargoUpside'
-        )
+        .getElementById('cargoUpside')
         .checked,
 
     Stackable:
       document
-        .getElementById(
-          'cargoStackable'
-        )
+        .getElementById('cargoStackable')
         .checked,
 
     Colour:
@@ -1286,12 +1025,14 @@ async function saveCargo(
       editingId;
   }
 
+  setAutosaveState('saving');
+
   const result =
-    await apiPost(
-      payload
-    );
+    await apiPost(payload);
 
   if (!result.ok) {
+    setAutosaveState('error');
+
     alert(
       result.message ||
       'Unable to save cargo.'
@@ -1303,8 +1044,82 @@ async function saveCargo(
   closeCargoModal();
 
   await reloadPlan();
-
   await loadPlans();
+
+  setAutosaveState('saved');
+}
+
+
+/* =========================================================
+   QUICK ORIENTATION CONTROLS
+========================================================= */
+
+async function setOrientation(
+  itemId,
+  mode
+) {
+  const item =
+    items.find(
+      cargo =>
+        cargo.Item_ID ===
+        itemId
+    );
+
+  if (!item) {
+    return;
+  }
+
+  const payload = {
+    action: 'updateItem',
+    sessionToken,
+    Item_ID: itemId
+  };
+
+  if (mode === 'default') {
+    payload.Rotate_Horizontal =
+      false;
+
+    payload.Turn_Sideways =
+      false;
+
+    payload.Turn_Upside_Down =
+      false;
+  }
+
+  if (mode === 'rotate') {
+    payload.Rotate_Horizontal =
+      true;
+  }
+
+  if (mode === 'sideways') {
+    payload.Turn_Sideways =
+      !toBoolean(
+        item.Turn_Sideways
+      );
+  }
+
+  if (mode === 'upside') {
+    payload.Turn_Upside_Down =
+      !toBoolean(
+        item.Turn_Upside_Down
+      );
+  }
+
+  setAutosaveState('saving');
+
+  const result =
+    await apiPost(payload);
+
+  if (!result.ok) {
+    setAutosaveState('error');
+    alert(result.message);
+    return;
+  }
+
+  await reloadPlan();
+  await loadPlans();
+
+  setAutosaveState('saved');
 }
 
 
@@ -1312,9 +1127,7 @@ async function saveCargo(
    EDIT / DELETE
 ========================================================= */
 
-function editCargo(
-  itemId
-) {
+function editCargo(itemId) {
   const item =
     items.find(
       cargo =>
@@ -1381,36 +1194,28 @@ function editCargo(
   );
 
   document
-    .getElementById(
-      'cargoRotate'
-    )
+    .getElementById('cargoRotate')
     .checked =
       toBoolean(
         item.Rotate_Horizontal
       );
 
   document
-    .getElementById(
-      'cargoSideways'
-    )
+    .getElementById('cargoSideways')
     .checked =
       toBoolean(
         item.Turn_Sideways
       );
 
   document
-    .getElementById(
-      'cargoUpside'
-    )
+    .getElementById('cargoUpside')
     .checked =
       toBoolean(
         item.Turn_Upside_Down
       );
 
   document
-    .getElementById(
-      'cargoStackable'
-    )
+    .getElementById('cargoStackable')
     .checked =
       toBoolean(
         item.Stackable
@@ -1424,9 +1229,7 @@ function editCargo(
 }
 
 
-async function deleteCargo(
-  itemId
-) {
+async function deleteCargo(itemId) {
   const item =
     items.find(
       cargo =>
@@ -1446,29 +1249,25 @@ async function deleteCargo(
     return;
   }
 
+  setAutosaveState('saving');
+
   const result =
     await apiPost({
-      action:
-        'deleteItem',
-
-    Item_ID:
-      itemId,
-
-    sessionToken:
+      action: 'deleteItem',
+      Item_ID: itemId,
       sessionToken
-  });
+    });
 
   if (!result.ok) {
-    alert(
-      result.message
-    );
-
+    setAutosaveState('error');
+    alert(result.message);
     return;
   }
 
   await reloadPlan();
-
   await loadPlans();
+
+  setAutosaveState('saved');
 }
 
 
@@ -1487,9 +1286,7 @@ async function reloadPlan() {
       {
         planId:
           plan.Plan_ID,
-
-        sessionToken:
-          sessionToken
+        sessionToken
       }
     );
 
@@ -1499,11 +1296,14 @@ async function reloadPlan() {
     );
   }
 
-  plan =
-    data.plan;
+  plan = data.plan;
+  items = data.items || [];
 
-  items =
-    data.items || [];
+  planUpdated.textContent =
+    `Updated ${formatShortDateTime(
+      plan.Updated_At ||
+      plan.Created_At
+    )}`;
 
   refreshEverything();
 }
@@ -1516,7 +1316,8 @@ async function reloadPlan() {
 function refreshEverything() {
   renderCargoList();
 
-  calculateTotals();
+  const totals =
+    calculateTotals();
 
   packingResult =
     calculatePacking();
@@ -1527,7 +1328,13 @@ function refreshEverything() {
 
   renderLegend();
 
-  renderContainerSpec();
+  renderContainerDimensions(
+    totals
+  );
+
+  renderUtilisation(
+    totals
+  );
 
   render3D(
     packingResult
@@ -1551,117 +1358,233 @@ function renderCargoList() {
     return;
   }
 
-  cargoList.innerHTML =
-    '';
+  cargoList.innerHTML = '';
 
-  items.forEach(
-    item => {
-      const card =
-        document.createElement(
-          'article'
-        );
-
-      card.className =
-        'cargo-card';
-
-      card.innerHTML =
-        `
-        <div class="cargo-title-row">
-
-          <span
-            class="colour-dot"
-            style="
-              background:
-              ${escapeHtml(
-                item.Colour
-              )}
-            "
-          ></span>
-
-          <div class="cargo-name">
-            ${escapeHtml(
-              item.Product_Name
-            )}
-          </div>
-
-        </div>
-
-
-        <div class="cargo-meta">
-
-          ${formatNumber(
-            item.Quantity
-          )}
-          ${escapeHtml(
-            item.Packing_Type
-          )}
-
-          <br>
-
-          ${formatDimension(
-            item.Length_mm
-          )}
-          ×
-          ${formatDimension(
-            item.Width_mm
-          )}
-          ×
-          ${formatDimension(
-            item.Height_mm
-          )}
-          ${dimensionLabel()}
-
-        </div>
-
-
-        <div class="cargo-card-actions">
-
-          <button
-            class="small-btn edit"
-            type="button"
-          >
-            Edit
-          </button>
-
-          <button
-            class="small-btn danger remove"
-            type="button"
-          >
-            Remove
-          </button>
-
-        </div>
-        `;
-
-      card
-        .querySelector(
-          '.edit'
-        )
-        .addEventListener(
-          'click',
-          () =>
-            editCargo(
-              item.Item_ID
-            )
-        );
-
-      card
-        .querySelector(
-          '.remove'
-        )
-        .addEventListener(
-          'click',
-          () =>
-            deleteCargo(
-              item.Item_ID
-            )
-        );
-
-      cargoList.appendChild(
-        card
+  items.forEach(item => {
+    const totalItemWeight =
+      Number(
+        item.Gross_Weight_Kg ||
+        0
+      ) *
+      Number(
+        item.Quantity ||
+        0
       );
-    }
-  );
+
+    const rotateActive =
+      toBoolean(
+        item.Rotate_Horizontal
+      );
+
+    const sideActive =
+      toBoolean(
+        item.Turn_Sideways
+      );
+
+    const upsideActive =
+      toBoolean(
+        item.Turn_Upside_Down
+      );
+
+    const card =
+      document.createElement(
+        'article'
+      );
+
+    card.className =
+      'cargo-card';
+
+    card.innerHTML =
+      `
+      <div class="cargo-title-row">
+        <span
+          class="colour-dot"
+          style="
+            background:
+            ${escapeHtml(
+              item.Colour
+            )}
+          "
+        ></span>
+
+        <div class="cargo-name">
+          ${escapeHtml(
+            item.Product_Name
+          )}
+        </div>
+
+        <div class="cargo-spacer"></div>
+
+        <button
+          class="small-btn edit"
+          type="button"
+        >
+          Edit
+        </button>
+
+        <button
+          class="small-btn danger remove"
+          type="button"
+        >
+          ×
+        </button>
+      </div>
+
+      <div class="cargo-meta">
+        Qty: ${formatNumber(
+          item.Quantity
+        )}
+        &nbsp; | &nbsp;
+        Type: ${escapeHtml(
+          item.Packing_Type
+        )}
+        &nbsp; | &nbsp;
+        Wt: ${formatDecimal(
+          weightFromKG(
+            totalItemWeight
+          ),
+          2
+        )} ${weightLabel()}
+        <br>
+
+        Internal:
+        ${formatDimension(
+          item.Length_mm
+        )}
+        ×
+        ${formatDimension(
+          item.Width_mm
+        )}
+        ×
+        ${formatDimension(
+          item.Height_mm
+        )}
+        ${dimensionLabel()}
+        <br>
+
+        Gross Wt/Unit:
+        ${formatDecimal(
+          weightFromKG(
+            item.Gross_Weight_Kg
+          ),
+          2
+        )} ${weightLabel()}
+      </div>
+
+      <div class="orientation-row">
+        <button
+          class="orientation-btn default-btn"
+          type="button"
+        >
+          Default
+        </button>
+
+        <button
+          class="orientation-btn rotate-btn ${rotateActive ? 'active' : ''}"
+          type="button"
+        >
+          Rotate Floor
+        </button>
+
+        <button
+          class="orientation-btn sideways-btn ${sideActive ? 'active' : ''}"
+          type="button"
+        >
+          Rotate Sideways
+        </button>
+
+        <button
+          class="orientation-btn upside-btn ${upsideActive ? 'active' : ''}"
+          type="button"
+        >
+          Upside Down
+        </button>
+      </div>
+
+      <div class="stack-row">
+        <span>
+          ${toBoolean(
+            item.Stackable
+          ) ? '☑' : '☐'}
+          Stackable
+        </span>
+
+        <span>
+          Max Layers:
+          ${Number(
+            item.Max_Layers ||
+            0
+          ) || 'Auto'}
+        </span>
+      </div>
+      `;
+
+    card
+      .querySelector('.edit')
+      .addEventListener(
+        'click',
+        () =>
+          editCargo(
+            item.Item_ID
+          )
+      );
+
+    card
+      .querySelector('.remove')
+      .addEventListener(
+        'click',
+        () =>
+          deleteCargo(
+            item.Item_ID
+          )
+      );
+
+    card
+      .querySelector('.default-btn')
+      .addEventListener(
+        'click',
+        () =>
+          setOrientation(
+            item.Item_ID,
+            'default'
+          )
+      );
+
+    card
+      .querySelector('.rotate-btn')
+      .addEventListener(
+        'click',
+        () =>
+          setOrientation(
+            item.Item_ID,
+            'rotate'
+          )
+      );
+
+    card
+      .querySelector('.sideways-btn')
+      .addEventListener(
+        'click',
+        () =>
+          setOrientation(
+            item.Item_ID,
+            'sideways'
+          )
+      );
+
+    card
+      .querySelector('.upside-btn')
+      .addEventListener(
+        'click',
+        () =>
+          setOrientation(
+            item.Item_ID,
+            'upside'
+          )
+      );
+
+    cargoList.appendChild(card);
+  });
 }
 
 
@@ -1674,49 +1597,46 @@ function calculateTotals() {
   let weightKG = 0;
   let cbm = 0;
 
-  items.forEach(
-    item => {
-      const qty =
-        Number(
-          item.Quantity ||
-          0
-        );
+  items.forEach(item => {
+    const qty =
+      Number(
+        item.Quantity || 0
+      );
 
-      packages +=
-        qty;
+    packages += qty;
 
-      weightKG +=
+    weightKG +=
+      Number(
+        item.Gross_Weight_Kg ||
+        0
+      ) *
+      qty;
+
+    cbm +=
+      (
         Number(
-          item.Gross_Weight_Kg ||
-          0
+          item.Length_mm
         ) *
-        qty;
-
-      cbm +=
-        (
-          Number(
-            item.Length_mm
-          ) *
-          Number(
-            item.Width_mm
-          ) *
-          Number(
-            item.Height_mm
-          ) *
-          qty
-        ) /
-        1000000000;
-    }
-  );
+        Number(
+          item.Width_mm
+        ) *
+        Number(
+          item.Height_mm
+        ) *
+        qty
+      ) /
+      1000000000;
+  });
 
   const container =
     selectedContainer();
 
+  let containerCBM = 0;
   let volumePct = 0;
   let payloadPct = 0;
 
   if (container) {
-    const containerCBM =
+    containerCBM =
       (
         Number(
           container.Internal_Length_mm
@@ -1750,18 +1670,12 @@ function calculateTotals() {
   }
 
   document
-    .getElementById(
-      'totalPackages'
-    )
+    .getElementById('totalPackages')
     .textContent =
-      formatNumber(
-        packages
-      );
+      formatNumber(packages);
 
   document
-    .getElementById(
-      'totalWeight'
-    )
+    .getElementById('totalWeight')
     .textContent =
       `${formatDecimal(
         weightFromKG(
@@ -1771,9 +1685,7 @@ function calculateTotals() {
       )} ${weightLabel()}`;
 
   document
-    .getElementById(
-      'totalCBM'
-    )
+    .getElementById('totalCBM')
     .textContent =
       `${formatDecimal(
         cbm,
@@ -1781,9 +1693,7 @@ function calculateTotals() {
       )} CBM`;
 
   document
-    .getElementById(
-      'volumeUsed'
-    )
+    .getElementById('volumeUsed')
     .textContent =
       `${formatDecimal(
         volumePct,
@@ -1791,9 +1701,7 @@ function calculateTotals() {
       )}%`;
 
   document
-    .getElementById(
-      'payloadUsed'
-    )
+    .getElementById('payloadUsed')
     .textContent =
       `${formatDecimal(
         payloadPct,
@@ -1807,6 +1715,20 @@ function calculateTotals() {
     volumePct,
     payloadPct
   );
+
+  return {
+    packages,
+    weightKG,
+    cbm,
+    containerCBM,
+    volumePct,
+    payloadPct,
+    maxPayloadKG:
+      Number(
+        container?.Max_Payload_Kg ||
+        0
+      )
+  };
 }
 
 
@@ -1823,33 +1745,24 @@ async function saveTotals(
 
   try {
     await apiPost({
-      action:
-        'updatePlan',
-
-      sessionToken:
-        sessionToken,
-
+      action: 'updatePlan',
+      sessionToken,
       Plan_ID:
         plan.Plan_ID,
-
       Total_Packages:
         packages,
-
       Total_Gross_Weight_Kg:
         Number(
           weightKG.toFixed(2)
         ),
-
       Cargo_Volume_CBM:
         Number(
           cbm.toFixed(3)
         ),
-
       Container_Volume_Used_Pct:
         Number(
           volumePct.toFixed(2)
         ),
-
       Payload_Used_Pct:
         Number(
           payloadPct.toFixed(2)
@@ -1909,235 +1822,209 @@ function calculatePacking() {
       .sort(
         (a, b) =>
           Number(
-            a.Loading_Order ||
-            0
+            a.Loading_Order || 0
           ) -
           Number(
-            b.Loading_Order ||
-            0
+            b.Loading_Order || 0
           )
       );
 
-  sortedItems.forEach(
-    item => {
-      const requested =
-        Number(
-          item.Quantity ||
-          0
-        );
-
-      const remainingLength =
-        Math.max(
-          0,
-          C.L -
-          cursorX
-        );
-
-      const orientations =
-        allowedOrientations(
-          item
-        );
-
-      let best =
-        null;
-
-      orientations.forEach(
-        orientation => {
-          const across =
-            Math.floor(
-              C.W /
-              orientation.w
-            );
-
-          let layers =
-            toBoolean(
-              item.Stackable
-            )
-              ? Math.floor(
-                  C.H /
-                  orientation.h
-                )
-              : 1;
-
-          const maxLayers =
-            Number(
-              item.Max_Layers ||
-              0
-            );
-
-          if (
-            maxLayers >
-            0
-          ) {
-            layers =
-              Math.min(
-                layers,
-                maxLayers
-              );
-          }
-
-          const rows =
-            Math.floor(
-              remainingLength /
-              orientation.l
-            );
-
-          const capacity =
-            Math.max(
-              0,
-              across *
-              layers *
-              rows
-            );
-
-          const fit =
-            Math.min(
-              requested,
-              capacity
-            );
-
-          const rowsNeeded =
-            fit > 0
-              ? Math.ceil(
-                  fit /
-                  Math.max(
-                    1,
-                    across *
-                    layers
-                  )
-                )
-              : 0;
-
-          const usedLength =
-            rowsNeeded *
-            orientation.l;
-
-          const score =
-            fit *
-            1000000 -
-            usedLength;
-
-          if (
-            !best ||
-            score >
-            best.score
-          ) {
-            best = {
-              ...orientation,
-              across,
-              layers,
-              rows,
-              capacity,
-              fit,
-              rowsNeeded,
-              usedLength,
-              score
-            };
-          }
-        }
+  sortedItems.forEach(item => {
+    const requested =
+      Number(
+        item.Quantity || 0
       );
 
-      if (!best) {
+    const remainingLength =
+      Math.max(
+        0,
+        C.L - cursorX
+      );
+
+    const orientations =
+      allowedOrientations(
+        item
+      );
+
+    let best = null;
+
+    orientations.forEach(o => {
+      if (
+        o.l <= 0 ||
+        o.w <= 0 ||
+        o.h <= 0
+      ) {
+        return;
+      }
+
+      const across =
+        Math.floor(
+          C.W / o.w
+        );
+
+      let layers =
+        toBoolean(
+          item.Stackable
+        )
+          ? Math.floor(
+              C.H / o.h
+            )
+          : 1;
+
+      const maxLayers =
+        Number(
+          item.Max_Layers || 0
+        );
+
+      if (maxLayers > 0) {
+        layers =
+          Math.min(
+            layers,
+            maxLayers
+          );
+      }
+
+      const rows =
+        Math.floor(
+          remainingLength /
+          o.l
+        );
+
+      const capacity =
+        Math.max(
+          0,
+          across *
+          layers *
+          rows
+        );
+
+      const fit =
+        Math.min(
+          requested,
+          capacity
+        );
+
+      const rowsNeeded =
+        fit > 0
+          ? Math.ceil(
+              fit /
+              Math.max(
+                1,
+                across *
+                layers
+              )
+            )
+          : 0;
+
+      const usedLength =
+        rowsNeeded *
+        o.l;
+
+      const score =
+        fit * 1000000 -
+        usedLength;
+
+      if (
+        !best ||
+        score >
+        best.score
+      ) {
         best = {
-          l: 0,
-          w: 0,
-          h: 0,
-          across: 0,
-          layers: 0,
-          fit: 0,
-          rowsNeeded: 0,
-          usedLength: 0
+          ...o,
+          across,
+          layers,
+          rows,
+          capacity,
+          fit,
+          rowsNeeded,
+          usedLength,
+          score
         };
       }
+    });
 
-      let placed =
-        0;
+    if (!best) {
+      best = {
+        l: 0,
+        w: 0,
+        h: 0,
+        across: 0,
+        layers: 0,
+        fit: 0,
+        rowsNeeded: 0,
+        usedLength: 0
+      };
+    }
 
+    let placed = 0;
+
+    for (
+      let r = 0;
+      r < best.rowsNeeded;
+      r++
+    ) {
       for (
-        let rowIndex = 0;
-        rowIndex <
-        best.rowsNeeded;
-        rowIndex++
+        let layer = 0;
+        layer < best.layers;
+        layer++
       ) {
         for (
-          let layer = 0;
-          layer <
-          best.layers;
-          layer++
+          let across = 0;
+          across < best.across;
+          across++
         ) {
-          for (
-            let acrossIndex = 0;
-            acrossIndex <
-            best.across;
-            acrossIndex++
+          if (
+            placed >=
+            best.fit
           ) {
-            if (
-              placed >=
-              best.fit
-            ) {
-              break;
-            }
-
-            placements.push({
-              itemId:
-                item.Item_ID,
-
-              colour:
-                item.Colour,
-
-              x:
-                cursorX +
-                rowIndex *
-                best.l,
-
-              y:
-                acrossIndex *
-                best.w,
-
-              z:
-                layer *
-                best.h,
-
-              l:
-                best.l,
-
-              w:
-                best.w,
-
-              h:
-                best.h
-            });
-
-            placed++;
+            break;
           }
+
+          placements.push({
+            itemId:
+              item.Item_ID,
+            colour:
+              item.Colour,
+            x:
+              cursorX +
+              r * best.l,
+            y:
+              across *
+              best.w,
+            z:
+              layer *
+              best.h,
+            l:
+              best.l,
+            w:
+              best.w,
+            h:
+              best.h
+          });
+
+          placed++;
         }
       }
-
-      cursorX +=
-        best.usedLength;
-
-      results.push({
-        item:
-          item,
-
-        requested:
-          requested,
-
-        fitted:
-          best.fit,
-
-        remaining:
-          Math.max(
-            0,
-            requested -
-            best.fit
-          ),
-
-        orientation:
-          best
-      });
     }
-  );
+
+    cursorX +=
+      best.usedLength;
+
+    results.push({
+      item,
+      requested,
+      fitted:
+        best.fit,
+      remaining:
+        Math.max(
+          0,
+          requested -
+          best.fit
+        ),
+      orientation:
+        best
+    });
+  });
 
   return {
     placements,
@@ -2148,9 +2035,7 @@ function calculatePacking() {
 }
 
 
-function allowedOrientations(
-  item
-) {
+function allowedOrientations(item) {
   const L =
     Number(
       item.Length_mm
@@ -2195,6 +2080,11 @@ function allowedOrientations(
     );
   }
 
+  /*
+    Upside-down does not change the bounding box size,
+    but we retain the flag for handling/printing logic.
+  */
+
   const unique =
     new Map();
 
@@ -2221,9 +2111,7 @@ function allowedOrientations(
    FIT RESULTS
 ========================================================= */
 
-function renderFitResults(
-  result
-) {
+function renderFitResults(result) {
   if (
     !result.results.length
   ) {
@@ -2239,12 +2127,28 @@ function renderFitResults(
 
   fitResults.innerHTML =
     result.results
-      .map(
-        row => `
+      .map(row => {
+        const itemVolumeCBM =
+          (
+            Number(
+              row.item.Length_mm
+            ) *
+            Number(
+              row.item.Width_mm
+            ) *
+            Number(
+              row.item.Height_mm
+            ) *
+            Number(
+              row.requested
+            )
+          ) /
+          1000000000;
+
+        return `
         <div class="fit-row">
 
           <div class="fit-name">
-
             <span
               class="colour-dot"
               style="
@@ -2258,67 +2162,233 @@ function renderFitResults(
             ${escapeHtml(
               row.item.Product_Name
             )}
-
           </div>
 
-
           <div class="fit-number">
-
-            <span>
-              Requested
-            </span>
-
+            <span>Packages</span>
             <strong>
               ${formatNumber(
                 row.requested
               )}
             </strong>
-
           </div>
 
-
           <div class="fit-number">
-
-            <span>
-              Fits
-            </span>
-
+            <span>Fits</span>
             <strong>
               ${formatNumber(
                 row.fitted
               )}
             </strong>
-
           </div>
 
-
-          <div
-            class="
-              fit-number
-              ${
-                row.remaining
-                  ? 'remaining-warning'
-                  : ''
-              }
-            "
-          >
-
-            <span>
-              Remaining
-            </span>
-
+          <div class="fit-number">
+            <span>Volume</span>
             <strong>
-              ${formatNumber(
-                row.remaining
-              )}
+              ${formatDecimal(
+                itemVolumeCBM,
+                2
+              )} CBM
             </strong>
+          </div>
 
+          <div class="fit-status">
+            ${
+              row.remaining > 0
+                ? `<span class="status-warning">${formatNumber(row.remaining)} left</span>`
+                : `<span class="status-ok">OK</span>`
+            }
           </div>
 
         </div>
-        `
-      )
+        `;
+      })
       .join('');
+}
+
+
+/* =========================================================
+   CONTAINER DIMENSIONS
+========================================================= */
+
+function renderContainerDimensions(totals) {
+  const container =
+    selectedContainer();
+
+  if (!container) {
+    return;
+  }
+
+  const length =
+    formatDimension(
+      container.Internal_Length_mm
+    );
+
+  const width =
+    formatDimension(
+      container.Internal_Width_mm
+    );
+
+  const height =
+    formatDimension(
+      container.Internal_Height_mm
+    );
+
+  const unit =
+    dimensionLabel();
+
+  document
+    .getElementById('dimLength')
+    .textContent =
+      `Inner Length: ${length} ${unit}`;
+
+  document
+    .getElementById('dimWidth')
+    .textContent =
+      `Inner Width: ${width} ${unit}`;
+
+  document
+    .getElementById('dimHeight')
+    .textContent =
+      `Inner Height: ${height} ${unit}`;
+
+  document
+    .getElementById('specContainerName')
+    .textContent =
+      `${container.Container_Name} · Internal`;
+
+  document
+    .getElementById('specLength')
+    .textContent =
+      `${length} ${unit}`;
+
+  document
+    .getElementById('specWidth')
+    .textContent =
+      `${width} ${unit}`;
+
+  document
+    .getElementById('specHeight')
+    .textContent =
+      `${height} ${unit}`;
+
+  document
+    .getElementById('specVolume')
+    .textContent =
+      `${formatDecimal(
+        totals.containerCBM,
+        2
+      )} CBM`;
+
+  document
+    .getElementById('specPayload')
+    .textContent =
+      `${formatDecimal(
+        weightFromKG(
+          totals.maxPayloadKG
+        ),
+        0
+      )} ${weightLabel()}`;
+}
+
+
+/* =========================================================
+   UTILISATION
+========================================================= */
+
+function renderUtilisation(totals) {
+  const volumePct =
+    clamp(
+      totals.volumePct,
+      0,
+      100
+    );
+
+  const payloadPct =
+    clamp(
+      totals.payloadPct,
+      0,
+      100
+    );
+
+  document
+    .getElementById('utilVolumePct')
+    .textContent =
+      `${formatDecimal(
+        totals.volumePct,
+        1
+      )}%`;
+
+  document
+    .getElementById('utilPayloadPct')
+    .textContent =
+      `${formatDecimal(
+        totals.payloadPct,
+        1
+      )}%`;
+
+  document
+    .getElementById('utilVolumeBar')
+    .style.width =
+      `${volumePct}%`;
+
+  document
+    .getElementById('utilPayloadBar')
+    .style.width =
+      `${payloadPct}%`;
+
+  document
+    .getElementById('utilVolumeText')
+    .textContent =
+      `${formatDecimal(
+        totals.cbm,
+        2
+      )} / ${formatDecimal(
+        totals.containerCBM,
+        2
+      )} CBM`;
+
+  document
+    .getElementById('utilPayloadText')
+    .textContent =
+      `${formatDecimal(
+        weightFromKG(
+          totals.weightKG
+        ),
+        0
+      )} / ${formatDecimal(
+        weightFromKG(
+          totals.maxPayloadKG
+        ),
+        0
+      )} ${weightLabel()}`;
+
+  const remainingVolume =
+    Math.max(
+      0,
+      100 -
+      totals.volumePct
+    );
+
+  const remainingPayload =
+    Math.max(
+      0,
+      totals.maxPayloadKG -
+      totals.weightKG
+    );
+
+  document
+    .getElementById('remainingNote')
+    .textContent =
+      `${formatDecimal(
+        remainingVolume,
+        1
+      )}% volume remaining · ${formatDecimal(
+        weightFromKG(
+          remainingPayload
+        ),
+        0
+      )} ${weightLabel()} payload remaining`;
 }
 
 
@@ -2332,7 +2402,7 @@ function initThree() {
 
   scene.background =
     new THREE.Color(
-      0xf4f7fb
+      0xf7f9fc
     );
 
   camera =
@@ -2356,6 +2426,10 @@ function initThree() {
     )
   );
 
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type =
+    THREE.PCFSoftShadowMap;
+
   viewer.appendChild(
     renderer.domElement
   );
@@ -2370,45 +2444,52 @@ function initThree() {
       renderer.domElement
     );
 
-  controls.enableDamping =
-    true;
-
-  controls.dampingFactor =
-    0.06;
-
-  controls.autoRotateSpeed =
-    1.2;
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.06;
+  controls.autoRotateSpeed = 1.2;
 
   scene.add(
     new THREE.HemisphereLight(
       0xffffff,
-      0x617083,
-      2.2
+      0x7a879a,
+      2.1
     )
   );
 
-  const light =
+  const keyLight =
     new THREE.DirectionalLight(
       0xffffff,
       2.4
     );
 
-  light.position.set(
-    6,
+  keyLight.position.set(
+    8,
     10,
     8
   );
 
-  scene.add(
-    light
+  keyLight.castShadow = true;
+
+  scene.add(keyLight);
+
+  const fillLight =
+    new THREE.DirectionalLight(
+      0xc8d6ff,
+      1.2
+    );
+
+  fillLight.position.set(
+    -6,
+    5,
+    -4
   );
+
+  scene.add(fillLight);
 
   cargoGroup =
     new THREE.Group();
 
-  scene.add(
-    cargoGroup
-  );
+  scene.add(cargoGroup);
 
   resizeViewer();
 
@@ -2421,40 +2502,14 @@ function initThree() {
 }
 
 
-function render3D(
-  result
-) {
+function render3D(result) {
   if (!renderer) {
     return;
   }
 
-  while (
-    cargoGroup.children.length
-  ) {
-    const child =
-      cargoGroup.children[0];
-
-    cargoGroup.remove(
-      child
-    );
-
-    child.geometry
-      ?.dispose?.();
-
-    if (
-      Array.isArray(
-        child.material
-      )
-    ) {
-      child.material.forEach(
-        material =>
-          material.dispose?.()
-      );
-    } else {
-      child.material
-        ?.dispose?.();
-    }
-  }
+  clearGroup(
+    cargoGroup
+  );
 
   const container =
     selectedContainer();
@@ -2479,53 +2534,66 @@ function render3D(
     );
 
   const scale =
-    10 /
-    L;
+    10 / L;
 
   const scaledL =
-    L *
-    scale;
+    L * scale;
 
   const scaledW =
-    W *
-    scale;
+    W * scale;
 
   const scaledH =
-    H *
-    scale;
+    H * scale;
 
+
+  /* GROUND GRID */
+
+  const grid =
+    new THREE.GridHelper(
+      16,
+      32,
+      0xd4dbe5,
+      0xe7ebf1
+    );
+
+  grid.position.set(
+    scaledL / 2,
+    -0.04,
+    scaledW / 2
+  );
+
+  cargoGroup.add(grid);
+
+
+  /* CONTAINER FLOOR */
 
   const floor =
     new THREE.Mesh(
       new THREE.BoxGeometry(
         scaledL,
-        0.018,
+        0.04,
         scaledW
       ),
 
       new THREE.MeshStandardMaterial({
-        color:
-          0xdfe5ec,
-
-        roughness:
-          0.85
+        color: 0xd8dee7,
+        roughness: 0.82,
+        metalness: 0.08
       })
     );
 
   floor.position.set(
-    scaledL /
-    2,
-
-    -0.02,
-
-    scaledW /
-    2
+    scaledL / 2,
+    -0.025,
+    scaledW / 2
   );
 
-  cargoGroup.add(
-    floor
-  );
+  floor.receiveShadow = true;
 
+  cargoGroup.add(floor);
+
+
+  /* TRANSPARENT CONTAINER SHELL */
 
   const containerGeometry =
     new THREE.BoxGeometry(
@@ -2538,36 +2606,29 @@ function render3D(
     new THREE.Mesh(
       containerGeometry,
 
-      new THREE.MeshBasicMaterial({
-        color:
-          0x8b98a9,
-
-        transparent:
-          true,
-
-        opacity:
-          0.035,
-
-        side:
-          THREE.DoubleSide
+      new THREE.MeshPhysicalMaterial({
+        color: 0xd9e2ee,
+        transparent: true,
+        opacity: 0.055,
+        roughness: 0.35,
+        metalness: 0.05,
+        side: THREE.DoubleSide,
+        depthWrite: false
       })
     );
 
   transparentShell.position.set(
-    scaledL /
-    2,
-
-    scaledH /
-    2,
-
-    scaledW /
-    2
+    scaledL / 2,
+    scaledH / 2,
+    scaledW / 2
   );
 
   cargoGroup.add(
     transparentShell
   );
 
+
+  /* CONTAINER EDGE FRAME */
 
   const edges =
     new THREE.LineSegments(
@@ -2576,14 +2637,9 @@ function render3D(
       ),
 
       new THREE.LineBasicMaterial({
-        color:
-          0x667488,
-
-        transparent:
-          true,
-
-        opacity:
-          0.75
+        color: 0x4f5c6d,
+        transparent: true,
+        opacity: 0.9
       })
     );
 
@@ -2591,10 +2647,38 @@ function render3D(
     transparentShell.position
   );
 
-  cargoGroup.add(
-    edges
+  cargoGroup.add(edges);
+
+
+  /* DOOR FRAME */
+
+  const doorFrame =
+    new THREE.LineSegments(
+      new THREE.EdgesGeometry(
+        new THREE.BoxGeometry(
+          0.035,
+          scaledH,
+          scaledW
+        )
+      ),
+
+      new THREE.LineBasicMaterial({
+        color: 0x344152
+      })
+    );
+
+  doorFrame.position.set(
+    0,
+    scaledH / 2,
+    scaledW / 2
   );
 
+  cargoGroup.add(
+    doorFrame
+  );
+
+
+  /* BOXES */
 
   result.placements.forEach(
     placement => {
@@ -2602,15 +2686,15 @@ function render3D(
         new THREE.BoxGeometry(
           placement.l *
           scale *
-          0.985,
+          0.97,
 
           placement.h *
           scale *
-          0.985,
+          0.97,
 
           placement.w *
           scale *
-          0.985
+          0.97
         );
 
       const material =
@@ -2620,7 +2704,7 @@ function render3D(
             '#64748B',
 
           roughness:
-            0.48,
+            0.52,
 
           metalness:
             0.02
@@ -2635,37 +2719,85 @@ function render3D(
       mesh.position.set(
         (
           placement.x +
-          placement.l /
-          2
+          placement.l / 2
         ) *
         scale,
 
         (
           placement.z +
-          placement.h /
-          2
+          placement.h / 2
         ) *
         scale,
 
         (
           placement.y +
-          placement.w /
-          2
+          placement.w / 2
         ) *
         scale
       );
 
-      cargoGroup.add(
-        mesh
-      );
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+
+      const outline =
+        new THREE.LineSegments(
+          new THREE.EdgesGeometry(
+            geometry
+          ),
+
+          new THREE.LineBasicMaterial({
+            color: 0x26313f,
+            transparent: true,
+            opacity: 0.38
+          })
+        );
+
+      mesh.add(outline);
+
+      cargoGroup.add(mesh);
     }
   );
 
-  resetCamera();
+  applyView(
+    currentView
+  );
 }
 
 
-function resetCamera() {
+function clearGroup(group) {
+  while (
+    group.children.length
+  ) {
+    const child =
+      group.children[0];
+
+    group.remove(child);
+
+    child.traverse?.(
+      node => {
+        node.geometry
+          ?.dispose?.();
+
+        if (
+          Array.isArray(
+            node.material
+          )
+        ) {
+          node.material.forEach(
+            material =>
+              material.dispose?.()
+          );
+        } else {
+          node.material
+            ?.dispose?.();
+        }
+      }
+    );
+  }
+}
+
+
+function applyView(view) {
   const container =
     selectedContainer();
 
@@ -2676,8 +2808,22 @@ function resetCamera() {
     return;
   }
 
-  const L =
-    10;
+  currentView =
+    view;
+
+  document
+    .querySelectorAll(
+      '.view-tab'
+    )
+    .forEach(button => {
+      button.classList.toggle(
+        'active',
+        button.dataset.view ===
+        view
+      );
+    });
+
+  const L = 10;
 
   const W =
     Number(
@@ -2697,24 +2843,53 @@ function resetCamera() {
     ) *
     10;
 
-  camera.position.set(
-    7.8,
-    5.3,
-    8.1
-  );
+  const target =
+    new THREE.Vector3(
+      L / 2,
+      H / 2,
+      W / 2
+    );
 
-  controls.target.set(
-    L /
-    2,
+  controls.target.copy(target);
 
-    H /
-    2,
+  if (view === 'top') {
+    camera.position.set(
+      L / 2,
+      10,
+      W / 2
+    );
+  } else if (view === 'side') {
+    camera.position.set(
+      L / 2,
+      H / 2,
+      8
+    );
+  } else if (view === 'front') {
+    camera.position.set(
+      -5.4,
+      H / 2,
+      W / 2
+    );
+  } else {
+    camera.position.set(
+      7.5,
+      4.7,
+      6.9
+    );
+  }
 
-    W /
-    2
+  camera.lookAt(
+    target
   );
 
   controls.update();
+}
+
+
+function resetCamera() {
+  applyView(
+    currentView
+  );
 }
 
 
@@ -2734,9 +2909,8 @@ function resizeViewer() {
   }
 
   const height =
-    width <
-    650
-      ? 350
+    width < 650
+      ? 390
       : 500;
 
   renderer.setSize(
@@ -2746,8 +2920,7 @@ function resizeViewer() {
   );
 
   camera.aspect =
-    width /
-    height;
+    width / height;
 
   camera
     .updateProjectionMatrix();
@@ -2761,7 +2934,9 @@ function animate() {
 
   if (controls) {
     controls.autoRotate =
-      autoRotate;
+      autoRotate &&
+      currentView ===
+      '3d';
 
     controls.update();
   }
@@ -2774,16 +2949,14 @@ function animate() {
 
 
 /* =========================================================
-   LEGEND / SPEC
+   LEGEND
 ========================================================= */
 
 function renderLegend() {
   legend.innerHTML =
     items
-      .map(
-        item => `
+      .map(item => `
         <div class="legend-item">
-
           <span
             class="legend-colour"
             style="
@@ -2794,51 +2967,22 @@ function renderLegend() {
             "
           ></span>
 
-          ${escapeHtml(
-            item.Product_Name
-          )}
-
+          <span>
+            ${escapeHtml(
+              item.Product_Name
+            )}
+            (${formatNumber(
+              item.Quantity
+            )})
+          </span>
         </div>
-        `
-      )
+      `)
       .join('');
 }
 
 
-function renderContainerSpec() {
-  const container =
-    selectedContainer();
-
-  if (!container) {
-    containerSpec.textContent =
-      '';
-
-    return;
-  }
-
-  containerSpec.textContent =
-    `${
-      container.Container_Name
-    } · ${
-      formatDimension(
-        container.Internal_Length_mm
-      )
-    } × ${
-      formatDimension(
-        container.Internal_Width_mm
-      )
-    } × ${
-      formatDimension(
-        container.Internal_Height_mm
-      )
-    } ${
-      dimensionLabel()
-    } internal`;
-}
-
-
 /* =========================================================
-   PRINT / PDF
+   PRINT
 ========================================================= */
 
 function preparePrint() {
@@ -2890,6 +3034,22 @@ function preparePrint() {
       </p>
 
       <p>
+        <strong>Internal Size:</strong>
+        ${formatDimension(
+          container.Internal_Length_mm
+        )}
+        ×
+        ${formatDimension(
+          container.Internal_Width_mm
+        )}
+        ×
+        ${formatDimension(
+          container.Internal_Height_mm
+        )}
+        ${dimensionLabel()}
+      </p>
+
+      <p>
         <strong>Total Packages:</strong>
         ${
           items.reduce(
@@ -2914,8 +3074,7 @@ function preparePrint() {
     )
     .innerHTML =
       items
-        .map(
-          item => `
+        .map(item => `
           <div class="print-item">
             <span>
               ${escapeHtml(
@@ -2929,8 +3088,7 @@ function preparePrint() {
               )}
             </strong>
           </div>
-          `
-        )
+        `)
         .join('');
 
   setTimeout(
@@ -2977,8 +3135,7 @@ function bindEvents() {
           'hidden'
         );
 
-        authMessage.textContent =
-          '';
+        authMessage.textContent = '';
 
         devOtpHint.classList.add(
           'hidden'
@@ -2989,18 +3146,14 @@ function bindEvents() {
     );
 
   document
-    .getElementById(
-      'logoutBtn'
-    )
+    .getElementById('logoutBtn')
     .addEventListener(
       'click',
       logout
     );
 
   document
-    .getElementById(
-      'myPlansBtn'
-    )
+    .getElementById('myPlansBtn')
     .addEventListener(
       'click',
       async () => {
@@ -3010,30 +3163,14 @@ function bindEvents() {
     );
 
   document
-    .getElementById(
-      'backToPlansBtn'
-    )
-    .addEventListener(
-      'click',
-      async () => {
-        await loadPlans();
-        showPlansView();
-      }
-    );
-
-  document
-    .getElementById(
-      'newPlanFromListBtn'
-    )
+    .getElementById('newPlanFromListBtn')
     .addEventListener(
       'click',
       createNewPlan
     );
 
   document
-    .getElementById(
-      'newPlanBtn'
-    )
+    .getElementById('newPlanTopBtn')
     .addEventListener(
       'click',
       async () => {
@@ -3048,27 +3185,21 @@ function bindEvents() {
     );
 
   document
-    .getElementById(
-      'addCargoBtn'
-    )
+    .getElementById('addCargoBtn')
     .addEventListener(
       'click',
       openNewCargoModal
     );
 
   document
-    .getElementById(
-      'closeCargoBtn'
-    )
+    .getElementById('closeCargoBtn')
     .addEventListener(
       'click',
       closeCargoModal
     );
 
   document
-    .getElementById(
-      'cancelCargoBtn'
-    )
+    .getElementById('cancelCargoBtn')
     .addEventListener(
       'click',
       closeCargoModal
@@ -3107,27 +3238,7 @@ function bindEvents() {
   );
 
   document
-    .getElementById(
-      'optimiseBtn'
-    )
-    .addEventListener(
-      'click',
-      refreshEverything
-    );
-
-  document
-    .getElementById(
-      'resetViewBtn'
-    )
-    .addEventListener(
-      'click',
-      resetCamera
-    );
-
-  document
-    .getElementById(
-      'rotateViewBtn'
-    )
+    .getElementById('rotateViewBtn')
     .addEventListener(
       'click',
       event => {
@@ -3143,9 +3254,35 @@ function bindEvents() {
     );
 
   document
-    .getElementById(
-      'downloadBtn'
+    .getElementById('resetViewBtn')
+    .addEventListener(
+      'click',
+      resetCamera
+    );
+
+  document
+    .querySelectorAll(
+      '.view-tab'
     )
+    .forEach(button => {
+      button.addEventListener(
+        'click',
+        () =>
+          applyView(
+            button.dataset.view
+          )
+      );
+    });
+
+  document
+    .getElementById('downloadBtn')
+    .addEventListener(
+      'click',
+      preparePrint
+    );
+
+  document
+    .getElementById('printBtn')
     .addEventListener(
       'click',
       preparePrint
@@ -3157,14 +3294,11 @@ function bindEvents() {
    UNITS
 ========================================================= */
 
-function dimensionToMM(
-  value
-) {
+function dimensionToMM(value) {
   return Number(
     (
       Number(
-        value ||
-        0
+        value || 0
       ) *
       DIMENSION_UNITS[
         dimensionUnit.value
@@ -3174,14 +3308,11 @@ function dimensionToMM(
 }
 
 
-function dimensionFromMM(
-  value
-) {
+function dimensionFromMM(value) {
   return Number(
     (
       Number(
-        value ||
-        0
+        value || 0
       ) /
       DIMENSION_UNITS[
         dimensionUnit.value
@@ -3191,14 +3322,11 @@ function dimensionFromMM(
 }
 
 
-function weightToKG(
-  value
-) {
+function weightToKG(value) {
   return Number(
     (
       Number(
-        value ||
-        0
+        value || 0
       ) *
       WEIGHT_UNITS[
         weightUnit.value
@@ -3208,14 +3336,11 @@ function weightToKG(
 }
 
 
-function weightFromKG(
-  value
-) {
+function weightFromKG(value) {
   return Number(
     (
       Number(
-        value ||
-        0
+        value || 0
       ) /
       WEIGHT_UNITS[
         weightUnit.value
@@ -3239,25 +3364,18 @@ function weightLabel() {
 }
 
 
-function formatDimension(
-  mm
-) {
+function formatDimension(mm) {
   const converted =
-    dimensionFromMM(
-      mm
-    );
+    dimensionFromMM(mm);
 
   const unit =
     dimensionUnit.value;
 
   const decimals =
-    unit ===
-    'in' ||
-    unit ===
-    'ft'
+    unit === 'in' ||
+    unit === 'ft'
       ? 2
-      : unit ===
-        'cm'
+      : unit === 'cm'
         ? 1
         : 0;
 
@@ -3276,30 +3394,22 @@ function updateCargoLabels() {
     weightLabel();
 
   document
-    .getElementById(
-      'lengthLabel'
-    )
+    .getElementById('lengthLabel')
     .textContent =
       `Length (${d})`;
 
   document
-    .getElementById(
-      'widthLabel'
-    )
+    .getElementById('widthLabel')
     .textContent =
       `Width (${d})`;
 
   document
-    .getElementById(
-      'heightLabel'
-    )
+    .getElementById('heightLabel')
     .textContent =
       `Height (${d})`;
 
   document
-    .getElementById(
-      'weightLabel'
-    )
+    .getElementById('weightLabel')
     .textContent =
       `Gross Weight / Package (${w})`;
 }
@@ -3340,81 +3450,32 @@ function chooseColour() {
 }
 
 
-function toBoolean(
-  value
-) {
+function toBoolean(value) {
   return (
     value === true ||
-    String(
-      value
-    )
+    String(value)
       .toUpperCase() ===
       'TRUE' ||
-    String(
-      value
-    ) ===
-      '1'
+    String(value) === '1'
   );
 }
 
 
-function setValue(
-  id,
-  value
-) {
+function setValue(id, value) {
   document
-    .getElementById(
-      id
-    )
+    .getElementById(id)
     .value =
-      value ??
-      '';
+      value ?? '';
 }
 
 
-function formatMobile(
-  mobile
-) {
-  const digits =
-    String(
-      mobile ||
-      ''
-    )
-      .replace(/\D/g, '');
-
-  if (
-    digits.length ===
-    12 &&
-    digits.startsWith(
-      '91'
-    )
-  ) {
-    return (
-      '+91 ' +
-      digits.slice(
-        2,
-        7
-      ) +
-      ' ' +
-      digits.slice(7)
-    );
-  }
-
-  return digits;
-}
-
-
-function formatShortDate(
-  value
-) {
+function formatShortDate(value) {
   if (!value) {
     return '—';
   }
 
   const date =
-    new Date(
-      value
-    );
+    new Date(value);
 
   if (
     Number.isNaN(
@@ -3428,16 +3489,71 @@ function formatShortDate(
     .toLocaleDateString(
       'en-IN',
       {
-        day:
-          '2-digit',
-
-        month:
-          'short',
-
-        year:
-          'numeric'
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric'
       }
     );
+}
+
+
+function formatShortDateTime(value) {
+  if (!value) {
+    return '—';
+  }
+
+  const date =
+    new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return '—';
+  }
+
+  return date
+    .toLocaleString(
+      'en-IN',
+      {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }
+    );
+}
+
+
+function setAutosaveState(state) {
+  const el =
+    document.getElementById(
+      'autosaveTop'
+    );
+
+  if (state === 'saving') {
+    el.textContent =
+      'Saving...';
+
+    el.style.color =
+      '#f5d77a';
+  } else if (
+    state === 'error'
+  ) {
+    el.textContent =
+      'Save Failed';
+
+    el.style.color =
+      '#ff8f8f';
+  } else {
+    el.textContent =
+      '✓ Auto-Saved';
+
+    el.style.color =
+      '#4ee283';
+  }
 }
 
 
@@ -3447,9 +3563,7 @@ function setButtonBusy(
   label
 ) {
   const button =
-    document.getElementById(
-      id
-    );
+    document.getElementById(id);
 
   button.disabled =
     busy;
@@ -3459,16 +3573,29 @@ function setButtonBusy(
 }
 
 
-function formatNumber(
-  value
+function clamp(
+  value,
+  min,
+  max
 ) {
+  return Math.min(
+    max,
+    Math.max(
+      min,
+      Number(
+        value || 0
+      )
+    )
+  );
+}
+
+
+function formatNumber(value) {
   return Number(
-    value ||
-    0
-  )
-    .toLocaleString(
-      'en-IN'
-    );
+    value || 0
+  ).toLocaleString(
+    'en-IN'
+  );
 }
 
 
@@ -3477,28 +3604,22 @@ function formatDecimal(
   digits
 ) {
   return Number(
-    value ||
-    0
-  )
-    .toLocaleString(
-      'en-IN',
-      {
-        minimumFractionDigits:
-          digits,
-
-        maximumFractionDigits:
-          digits
-      }
-    );
+    value || 0
+  ).toLocaleString(
+    'en-IN',
+    {
+      minimumFractionDigits:
+        digits,
+      maximumFractionDigits:
+        digits
+    }
+  );
 }
 
 
-function escapeHtml(
-  value
-) {
+function escapeHtml(value) {
   return String(
-    value ??
-    ''
+    value ?? ''
   )
     .replace(
       /&/g,

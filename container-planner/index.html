@@ -23,22 +23,17 @@
   <!-- LOGIN -->
   <section id="authScreen" class="auth-screen">
     <div class="auth-card">
-
       <div class="brand-mark">FOREGO EXPORTS</div>
-
       <h1>Container Stuffing Planner</h1>
-
       <p class="auth-intro">
         Enter your mobile number to open your saved loading plans.
       </p>
 
       <form id="mobileForm" class="auth-form">
-
         <label for="mobileInput">Mobile Number</label>
 
         <div class="phone-input">
           <span class="country-code">+91</span>
-
           <input
             id="mobileInput"
             type="tel"
@@ -53,11 +48,9 @@
         <button id="sendOtpBtn" class="primary-btn auth-submit" type="submit">
           Continue
         </button>
-
       </form>
 
       <form id="otpForm" class="auth-form hidden">
-
         <div class="auth-back-row">
           <button id="changeMobileBtn" class="text-btn" type="button">
             ← Change number
@@ -84,11 +77,9 @@
         <button id="verifyOtpBtn" class="primary-btn auth-submit" type="submit">
           Verify & Continue
         </button>
-
       </form>
 
       <div id="authMessage" class="auth-message" aria-live="polite"></div>
-
     </div>
   </section>
 
@@ -97,133 +88,111 @@
   <main id="appShell" class="app-shell hidden">
 
     <header class="topbar">
-
       <div>
         <div class="eyebrow">FOREGO EXPORTS</div>
-
         <h1>Container Stuffing Planner</h1>
-
-        <p>
-          Plan, save and visualise container loading.
-        </p>
       </div>
 
       <div class="top-actions">
-
-        <div class="user-chip">
-          <span id="currentUserName">User</span>
-          <small id="currentUserMobile"></small>
-        </div>
+        <div id="autosaveTop" class="autosave-pill">✓ Auto-Saved</div>
 
         <button id="myPlansBtn" class="secondary-btn" type="button">
           My Plans
         </button>
 
-        <button id="logoutBtn" class="secondary-btn" type="button">
-          Logout
+        <button id="newPlanTopBtn" class="primary-btn" type="button">
+          + New Plan
         </button>
 
-      </div>
+        <div class="user-chip">
+          <span id="currentUserName">User</span>
+          <small id="currentUserRole">User</small>
+        </div>
 
+        <button id="logoutBtn" class="icon-btn" type="button" title="Logout">
+          ↗
+        </button>
+      </div>
     </header>
 
 
     <!-- MY PLANS -->
     <section id="plansView">
-
       <div class="plans-heading">
-
         <div>
           <div class="eyebrow">SAVED PLANS</div>
           <h2 id="plansTitle">My Loading Plans</h2>
-          <p id="plansSubtitle">
-            Open an existing plan or create a new one.
-          </p>
+          <p id="plansSubtitle">Open an existing plan or create a new one.</p>
         </div>
 
         <button id="newPlanFromListBtn" class="primary-btn" type="button">
           + New Plan
         </button>
-
       </div>
 
       <div id="plansGrid" class="plans-grid">
         <div class="empty-state">Loading plans...</div>
       </div>
-
     </section>
 
 
     <!-- PLAN EDITOR -->
     <section id="plannerView" class="hidden">
 
-      <div class="planner-nav">
-
-        <button id="backToPlansBtn" class="secondary-btn" type="button">
-          ← All Plans
-        </button>
-
-        <div class="planner-actions">
-
-          <button id="newPlanBtn" class="secondary-btn" type="button">
-            New Plan
-          </button>
-
-          <button id="downloadBtn" class="primary-btn" type="button">
-            Print / Save PDF
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <section class="plan-bar">
-
-        <div class="plan-number">
+      <!-- TOP SUMMARY BAR -->
+      <section class="plan-overview-grid">
+        <article class="overview-card">
           <span>PLAN</span>
           <strong id="planNumber">—</strong>
-        </div>
+          <small id="planUpdated">Updated —</small>
+        </article>
 
-        <div class="compact-field">
-          <label for="containerSelect">Container</label>
+        <article class="overview-card">
+          <span>CONTAINER</span>
           <select id="containerSelect"></select>
-        </div>
+        </article>
 
-        <div class="compact-field">
-          <label for="dimensionUnit">Dimensions</label>
+        <article class="overview-card overview-combined">
+          <div class="overview-field">
+            <span>DIMENSIONS</span>
+            <select id="dimensionUnit">
+              <option value="in">Inches</option>
+              <option value="mm">Millimetres</option>
+              <option value="cm">Centimetres</option>
+              <option value="ft">Feet</option>
+            </select>
+          </div>
 
-          <select id="dimensionUnit">
-            <option value="in">Inches</option>
-            <option value="mm">Millimetres</option>
-            <option value="cm">Centimetres</option>
-            <option value="ft">Feet</option>
-          </select>
-        </div>
+          <div class="overview-field">
+            <span>WEIGHT</span>
+            <select id="weightUnit">
+              <option value="kg">Kilograms</option>
+              <option value="lb">Pounds</option>
+            </select>
+          </div>
 
-        <div class="compact-field">
-          <label for="weightUnit">Weight</label>
+          <div class="overview-actions">
+            <button id="downloadBtn" class="primary-btn" type="button">
+              Download Plan (PDF)
+            </button>
 
-          <select id="weightUnit">
-            <option value="kg">Kilograms</option>
-            <option value="lb">Pounds</option>
-          </select>
-        </div>
-
-        <div id="saveStatus" class="save-status">Saved</div>
-
+            <button id="printBtn" class="secondary-btn" type="button">
+              Print
+            </button>
+          </div>
+        </article>
       </section>
 
 
+      <!-- METRICS -->
       <section class="summary-grid">
-
         <article class="metric">
-          <span>Packages</span>
+          <span>Total Packages</span>
           <strong id="totalPackages">0</strong>
         </article>
 
         <article class="metric">
-          <span>Gross Weight</span>
+          <span>Total Gross Weight</span>
           <strong id="totalWeight">0 kg</strong>
         </article>
 
@@ -232,104 +201,182 @@
           <strong id="totalCBM">0 CBM</strong>
         </article>
 
-        <article class="metric">
+        <article class="metric metric-success">
           <span>Volume Used</span>
           <strong id="volumeUsed">0%</strong>
         </article>
 
-        <article class="metric">
+        <article class="metric metric-primary">
           <span>Payload Used</span>
           <strong id="payloadUsed">0%</strong>
         </article>
-
       </section>
 
 
+      <!-- MAIN WORKSPACE -->
       <section class="workspace">
 
+        <!-- CARGO SIDEBAR -->
         <aside class="cargo-panel">
-
           <div class="section-heading">
-
             <div>
-              <div class="eyebrow">CARGO</div>
+              <div class="eyebrow">CARGO / PRODUCTS</div>
               <h2>Products</h2>
             </div>
 
             <button id="addCargoBtn" class="primary-btn" type="button">
-              + Add
+              + Add Cargo
             </button>
-
           </div>
 
           <div id="cargoList" class="cargo-list">
             <div class="empty-state">Add your first product.</div>
           </div>
 
+          <div class="sidebar-tip">
+            Loading sequence follows the order shown above.
+          </div>
         </aside>
 
 
-        <section class="visual-panel">
+        <!-- VISUAL AREA -->
+        <section class="visual-column">
 
-          <div class="visual-header">
+          <section class="visual-panel">
+            <div class="visual-toolbar">
+              <div class="view-tabs">
+                <button class="view-tab active" data-view="3d" type="button">3D View</button>
+                <button class="view-tab" data-view="top" type="button">Top View</button>
+                <button class="view-tab" data-view="side" type="button">Side View</button>
+                <button class="view-tab" data-view="front" type="button">Front View</button>
+              </div>
 
-            <div>
-              <div class="eyebrow">3D LOADING VIEW</div>
-              <h2>Container Visualisation</h2>
+              <div class="viewer-actions">
+                <button id="rotateViewBtn" class="viewer-btn" type="button">
+                  Auto Rotate
+                </button>
+
+                <button id="resetViewBtn" class="viewer-btn" type="button">
+                  Reset View
+                </button>
+              </div>
             </div>
 
-            <div class="viewer-actions">
+            <div class="viewer-wrap">
+              <div id="viewer" class="viewer">
+                <div id="viewerLoading" class="viewer-message">
+                  Preparing 3D viewer...
+                </div>
 
-              <button id="resetViewBtn" class="viewer-btn" type="button">
-                Reset View
-              </button>
+                <!-- DIMENSION OVERLAYS -->
+                <div id="dimLength" class="dimension-badge dimension-length">
+                  Inner Length: —
+                </div>
 
-              <button id="rotateViewBtn" class="viewer-btn" type="button">
-                Auto Rotate
-              </button>
+                <div id="dimHeight" class="dimension-badge dimension-height">
+                  Inner Height: —
+                </div>
 
+                <div id="dimWidth" class="dimension-badge dimension-width">
+                  Inner Width: —
+                </div>
+
+                <div class="viewer-help">
+                  Left Drag: Rotate · Right Drag: Pan · Scroll: Zoom
+                </div>
+              </div>
+
+              <aside class="viewer-sidepanel">
+                <div class="spec-card">
+                  <div class="spec-title" id="specContainerName">
+                    Container
+                  </div>
+
+                  <div class="spec-row">
+                    <span>Length (L)</span>
+                    <strong id="specLength">—</strong>
+                  </div>
+
+                  <div class="spec-row">
+                    <span>Width (W)</span>
+                    <strong id="specWidth">—</strong>
+                  </div>
+
+                  <div class="spec-row">
+                    <span>Height (H)</span>
+                    <strong id="specHeight">—</strong>
+                  </div>
+
+                  <div class="spec-row">
+                    <span>Volume</span>
+                    <strong id="specVolume">—</strong>
+                  </div>
+
+                  <div class="spec-row">
+                    <span>Max Payload</span>
+                    <strong id="specPayload">—</strong>
+                  </div>
+                </div>
+
+                <div class="spec-card">
+                  <div class="spec-title">Cargo Legend</div>
+                  <div id="legend" class="legend"></div>
+                </div>
+              </aside>
             </div>
+          </section>
 
-          </div>
 
-          <div id="viewer" class="viewer">
+          <!-- LOWER PANELS -->
+          <section class="lower-grid">
 
-            <div id="viewerLoading" class="viewer-message">
-              Preparing 3D viewer...
-            </div>
+            <article class="loading-summary-panel">
+              <div class="panel-title">LOADING SUMMARY BY CARGO</div>
 
-          </div>
+              <div id="fitResults" class="fit-results">
+                <div class="empty-state">
+                  Add cargo to calculate the loading arrangement.
+                </div>
+              </div>
+            </article>
 
-          <div id="containerSpec" class="container-spec"></div>
+            <article class="utilisation-panel">
+              <div class="panel-title">SPACE UTILISATION</div>
 
-          <div id="legend" class="legend"></div>
+              <div class="util-block">
+                <div class="util-row">
+                  <span>Volume Used</span>
+                  <strong id="utilVolumePct">0%</strong>
+                </div>
+
+                <div class="progress-track">
+                  <div id="utilVolumeBar" class="progress-bar progress-green"></div>
+                </div>
+
+                <div id="utilVolumeText" class="util-caption">0 / 0 CBM</div>
+              </div>
+
+              <div class="util-block">
+                <div class="util-row">
+                  <span>Payload Used</span>
+                  <strong id="utilPayloadPct">0%</strong>
+                </div>
+
+                <div class="progress-track">
+                  <div id="utilPayloadBar" class="progress-bar progress-blue"></div>
+                </div>
+
+                <div id="utilPayloadText" class="util-caption">0 / 0 kg</div>
+              </div>
+
+              <div id="remainingNote" class="remaining-note">
+                100% volume remaining
+              </div>
+            </article>
+
+          </section>
 
         </section>
-
-      </section>
-
-
-      <section class="fit-panel">
-
-        <div class="section-heading">
-
-          <div>
-            <div class="eyebrow">STUFFING RESULT</div>
-            <h2>Loading Summary</h2>
-          </div>
-
-          <button id="optimiseBtn" class="primary-btn" type="button">
-            Recalculate Stuffing
-          </button>
-
-        </div>
-
-        <div id="fitResults" class="fit-results">
-          <div class="empty-state">
-            Add cargo to calculate the loading arrangement.
-          </div>
-        </div>
-
       </section>
 
     </section>
@@ -337,60 +384,37 @@
 
     <!-- PRINT -->
     <section class="print-only">
-
       <div class="print-brand">FOREGO EXPORTS</div>
-
       <h2>Container Loading Plan</h2>
-
       <div id="printPlanMeta"></div>
-
-      <img
-        id="print3dImage"
-        alt="3D container loading arrangement"
-      >
-
+      <img id="print3dImage" alt="3D container loading arrangement">
       <div id="printItems"></div>
-
     </section>
-
   </main>
 
 
   <!-- CARGO MODAL -->
   <div id="cargoModal" class="modal-backdrop hidden">
-
     <div class="modal">
-
       <div class="modal-header">
-
         <div>
           <div class="eyebrow">CARGO ITEM</div>
           <h2 id="cargoModalTitle">Add Product</h2>
         </div>
 
-        <button id="closeCargoBtn" class="close-btn" type="button">
-          ×
-        </button>
-
+        <button id="closeCargoBtn" class="close-btn" type="button">×</button>
       </div>
 
       <form id="cargoForm" class="form-grid">
-
         <input id="cargoItemId" type="hidden">
 
         <div class="field full">
           <label for="cargoProduct">Product / Cargo Name</label>
-
-          <input
-            id="cargoProduct"
-            required
-            placeholder="e.g. Rice 5kg Carton"
-          >
+          <input id="cargoProduct" required placeholder="e.g. Rice 5kg Carton">
         </div>
 
         <div class="field">
           <label for="cargoPackingType">Packing Type</label>
-
           <select id="cargoPackingType">
             <option>Carton</option>
             <option>Crate</option>
@@ -402,85 +426,39 @@
 
         <div class="field">
           <label for="cargoQuantity">Quantity</label>
-
-          <input
-            id="cargoQuantity"
-            type="number"
-            min="1"
-            step="1"
-            required
-          >
+          <input id="cargoQuantity" type="number" min="1" step="1" required>
         </div>
 
         <div class="field">
           <label id="lengthLabel" for="cargoLength">Length (in)</label>
-
-          <input
-            id="cargoLength"
-            type="number"
-            min="0.01"
-            step="any"
-            required
-          >
+          <input id="cargoLength" type="number" min="0.01" step="any" required>
         </div>
 
         <div class="field">
           <label id="widthLabel" for="cargoWidth">Width (in)</label>
-
-          <input
-            id="cargoWidth"
-            type="number"
-            min="0.01"
-            step="any"
-            required
-          >
+          <input id="cargoWidth" type="number" min="0.01" step="any" required>
         </div>
 
         <div class="field">
           <label id="heightLabel" for="cargoHeight">Height (in)</label>
-
-          <input
-            id="cargoHeight"
-            type="number"
-            min="0.01"
-            step="any"
-            required
-          >
+          <input id="cargoHeight" type="number" min="0.01" step="any" required>
         </div>
 
         <div class="field">
-          <label id="weightLabel" for="cargoWeight">
-            Gross Weight / Package (kg)
-          </label>
-
-          <input
-            id="cargoWeight"
-            type="number"
-            min="0"
-            step="any"
-            required
-          >
+          <label id="weightLabel" for="cargoWeight">Gross Weight / Package (kg)</label>
+          <input id="cargoWeight" type="number" min="0" step="any" required>
         </div>
 
         <div class="field">
           <label for="cargoMaxLayers">Maximum Layers</label>
-
-          <input
-            id="cargoMaxLayers"
-            type="number"
-            min="0"
-            value="0"
-          >
-
+          <input id="cargoMaxLayers" type="number" min="0" value="0">
           <small>0 = unrestricted</small>
         </div>
 
         <div class="field full">
-
           <label>Loading Rules</label>
 
           <div class="check-grid">
-
             <label class="check-option">
               <input id="cargoRotate" type="checkbox" checked>
               <span>Rotate on floor</span>
@@ -488,7 +466,7 @@
 
             <label class="check-option">
               <input id="cargoSideways" type="checkbox">
-              <span>Turn sideways</span>
+              <span>Allow sideways rotation</span>
             </label>
 
             <label class="check-option">
@@ -500,13 +478,10 @@
               <input id="cargoStackable" type="checkbox" checked>
               <span>Stackable</span>
             </label>
-
           </div>
-
         </div>
 
         <div class="modal-actions full">
-
           <button id="cancelCargoBtn" class="secondary-btn" type="button">
             Cancel
           </button>
@@ -514,17 +489,12 @@
           <button id="saveCargoBtn" class="primary-btn" type="submit">
             Save Product
           </button>
-
         </div>
-
       </form>
-
     </div>
-
   </div>
 
 
   <script type="module" src="./app.js"></script>
-
 </body>
 </html>
