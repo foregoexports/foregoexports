@@ -35,9 +35,7 @@
     </header>
 
 
-    <!-- =========================
-         DASHBOARD
-    ========================== -->
+    <!-- DASHBOARD -->
 
     <section id="dashboardView">
 
@@ -54,11 +52,7 @@
           </div>
 
           <div id="plansList">
-
-            <p class="muted">
-              Loading plans...
-            </p>
-
+            <p class="muted">Loading plans...</p>
           </div>
 
         </section>
@@ -75,11 +69,7 @@
           </div>
 
           <div id="containersList">
-
-            <p class="muted">
-              Loading containers...
-            </p>
-
+            <p class="muted">Loading containers...</p>
           </div>
 
         </section>
@@ -89,9 +79,7 @@
     </section>
 
 
-    <!-- =========================
-         PLAN VIEW
-    ========================== -->
+    <!-- PLAN VIEW -->
 
     <section
       id="planView"
@@ -143,15 +131,11 @@
         <section class="card">
 
           <div class="card-header">
-
-            <h2>
-              Shipment Details
-            </h2>
+            <h2>Shipment Details</h2>
 
             <p>
               Basic information for this container.
             </p>
-
           </div>
 
 
@@ -214,6 +198,10 @@
                 id="editDimensionUnit"
                 name="Dimension_Unit"
               >
+                <option value="in">
+                  Inches (in)
+                </option>
+
                 <option value="mm">
                   Millimetres (mm)
                 </option>
@@ -222,14 +210,9 @@
                   Centimetres (cm)
                 </option>
 
-                <option value="in">
-                  Inches (in)
-                </option>
-
                 <option value="ft">
                   Feet (ft)
                 </option>
-
               </select>
 
             </div>
@@ -245,7 +228,6 @@
                 id="editWeightUnit"
                 name="Weight_Unit"
               >
-
                 <option value="kg">
                   Kilograms (kg)
                 </option>
@@ -253,7 +235,6 @@
                 <option value="lb">
                   Pounds (lb)
                 </option>
-
               </select>
 
             </div>
@@ -339,20 +320,16 @@
         </section>
 
 
-        <!-- CONTAINER -->
+        <!-- CONTAINER SUMMARY -->
 
         <aside class="card">
 
           <div class="card-header">
-
-            <h2>
-              Container
-            </h2>
+            <h2>Container</h2>
 
             <p>
               Selected container specification.
             </p>
-
           </div>
 
           <div
@@ -365,19 +342,14 @@
       </div>
 
 
-      <!-- =========================
-           CARGO
-      ========================== -->
+      <!-- CARGO -->
 
       <section class="cargo-section">
 
         <div class="cargo-section-header">
 
           <div>
-
-            <p class="eyebrow">
-              CARGO
-            </p>
+            <p class="eyebrow">CARGO</p>
 
             <h2>
               Cargo & Stuffing
@@ -387,7 +359,6 @@
               Add every carton, crate, bag, sack or pallet
               planned for this container.
             </p>
-
           </div>
 
           <button
@@ -400,8 +371,6 @@
 
         </div>
 
-
-        <!-- TOTALS -->
 
         <div class="stats-grid">
 
@@ -536,9 +505,7 @@
   </main>
 
 
-  <!-- =========================
-       NEW PLAN MODAL
-  ========================== -->
+  <!-- NEW PLAN MODAL -->
 
   <div
     id="newPlanModal"
@@ -635,11 +602,14 @@
           <select
             name="Dimension_Unit"
           >
-
             <option
-              value="mm"
+              value="in"
               selected
             >
+              Inches (in)
+            </option>
+
+            <option value="mm">
               Millimetres (mm)
             </option>
 
@@ -647,14 +617,9 @@
               Centimetres (cm)
             </option>
 
-            <option value="in">
-              Inches (in)
-            </option>
-
             <option value="ft">
               Feet (ft)
             </option>
-
           </select>
 
         </div>
@@ -669,7 +634,6 @@
           <select
             name="Weight_Unit"
           >
-
             <option
               value="kg"
               selected
@@ -680,7 +644,6 @@
             <option value="lb">
               Pounds (lb)
             </option>
-
           </select>
 
         </div>
@@ -780,9 +743,7 @@
   </div>
 
 
-  <!-- =========================
-       CARGO MODAL
-  ========================== -->
+  <!-- CARGO MODAL -->
 
   <div
     id="cargoModal"
@@ -857,27 +818,11 @@
           <select
             id="cargoPackingType"
           >
-
-            <option>
-              Carton
-            </option>
-
-            <option>
-              Crate
-            </option>
-
-            <option>
-              Bag
-            </option>
-
-            <option>
-              Sack
-            </option>
-
-            <option>
-              Pallet
-            </option>
-
+            <option>Carton</option>
+            <option>Crate</option>
+            <option>Bag</option>
+            <option>Sack</option>
+            <option>Pallet</option>
           </select>
 
         </div>
@@ -903,7 +848,7 @@
         <div class="field">
 
           <label id="cargoLengthLabel">
-            Length (mm)
+            Length (in)
           </label>
 
           <input
@@ -920,7 +865,7 @@
         <div class="field">
 
           <label id="cargoWidthLabel">
-            Width (mm)
+            Width (in)
           </label>
 
           <input
@@ -937,7 +882,7 @@
         <div class="field">
 
           <label id="cargoHeightLabel">
-            Height (mm)
+            Height (in)
           </label>
 
           <input
@@ -954,7 +899,7 @@
         <div class="field">
 
           <label id="cargoThicknessLabel">
-            Box Thickness (mm)
+            Box Thickness (in)
           </label>
 
           <input
