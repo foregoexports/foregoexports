@@ -6608,55 +6608,87 @@ function buildDetailedContainer(
   W,
   H
 ) {
+  /*
+    REFERENCE-STYLE HIGH CUBE CONTAINER
+    -----------------------------------
+    - dark structural frame
+    - metallic corrugated roof / far wall / back wall
+    - realistic door end with locking bars
+    - timber floor
+    - open near-side cutaway in planning mode
+    - fuller translucent near-side wall in Full Shell mode
+  */
+
   const group =
     new THREE.Group();
 
-  const steel =
+  const frameMat =
     new THREE.MeshStandardMaterial({
       color:
-        0x68788a,
+        0x394858,
 
       roughness:
-        0.58,
+        0.42,
 
       metalness:
-        0.52
+        0.72
     });
 
-  const darkSteel =
+  const frameHighlightMat =
     new THREE.MeshStandardMaterial({
       color:
-        0x394757,
+        0x6e7e8e,
+
+      roughness:
+        0.38,
+
+      metalness:
+        0.72
+    });
+
+  const panelMat =
+    new THREE.MeshStandardMaterial({
+      color:
+        0x8796a5,
 
       roughness:
         0.52,
 
       metalness:
-        0.62
+        0.54
     });
 
-  const wallOpacity =
-    containerVisualMode ===
-    'cutaway'
-      ? 0.075
-      : 0.20;
+  const panelDarkMat =
+    new THREE.MeshStandardMaterial({
+      color:
+        0x687787,
 
-  const wallMaterial =
+      roughness:
+        0.48,
+
+      metalness:
+        0.58
+    });
+
+  const panelTransparentMat =
     new THREE.MeshPhysicalMaterial({
       color:
-        0xa9b7c5,
+        0x98a6b4,
 
       transparent:
         true,
 
       opacity:
-        wallOpacity,
+        containerVisualMode ===
+          'cutaway'
+          ? 0.07
+          : 0.18,
 
       roughness:
         0.44,
 
       metalness:
-        0.22,
+        0.28,
 
       side:
         THREE.DoubleSide,
@@ -6665,41 +6697,70 @@ function buildDetailedContainer(
         false
     });
 
-  const floorMat =
+  const timberMat =
     new THREE.MeshStandardMaterial({
       color:
-        0x8e7558,
+        0x96724f,
 
       roughness:
-        0.86,
+        0.90,
 
       metalness:
-        0.02
+        0.01
+    });
+
+  const timberLineMat =
+    new THREE.MeshStandardMaterial({
+      color:
+        0x5f4936,
+
+      roughness:
+        0.94,
+
+      metalness:
+        0.00
+    });
+
+  const safetyMat =
+    new THREE.MeshStandardMaterial({
+      color:
+        0xd8a51e,
+
+      roughness:
+        0.55,
+
+      metalness:
+        0.15
     });
 
   const rail =
-    0.055;
+    0.065;
 
   const post =
-    0.075;
+    0.085;
+
+  const panelThickness =
+    0.024;
 
 
-  /* WOOD / STEEL FLOOR */
+  /* =====================================================
+     TIMBER FLOOR
+  ===================================================== */
 
   const floor =
     new THREE.Mesh(
       new THREE.BoxGeometry(
         L,
-        0.045,
+        0.055,
         W
       ),
-      floorMat
+      timberMat
     );
 
   floor.position.set(
     L /
       2,
-    -0.025,
+    -0.032,
     W /
       2
   );
@@ -6711,54 +6772,60 @@ function buildDetailedContainer(
     floor
   );
 
-
-  /* FLOOR PLANK LINES */
-
-  const plankCount =
-    16;
+  /*
+    Long timber board seams.
+    They run along container length just like a real container floor.
+  */
+  const boardCount =
+    14;
 
   for (
     let i = 1;
     i <
-    plankCount;
+    boardCount;
     i++
   ) {
     const z =
       W *
       i /
-      plankCount;
+      boardCount;
 
-    const plank =
+    const seam =
       new THREE.Mesh(
         new THREE.BoxGeometry(
           L,
-          0.006,
-          0.008
+          0.007,
+          0.012
         ),
-        darkSteel
+        timberLineMat
       );
 
-    plank.position.set(
+    seam.position.set(
       L /
         2,
-      0.005,
+      0.003,
       z
     );
 
     group.add(
-      plank
+      seam
     );
   }
 
 
-  /* BOTTOM + TOP LONGITUDINAL RAILS */
+  /* =====================================================
+     MAIN CHASSIS / STRUCTURAL FRAME
+  ===================================================== */
 
+  /*
+    Bottom and top side rails
+  */
   [
     0,
     W
   ].forEach(
     z => {
-      const bottom =
+      const bottomRail =
         new THREE.Mesh(
           new THREE.BoxGeometry(
             L +
@@ -6767,10 +6834,10 @@ function buildDetailedContainer(
             rail,
             rail
           ),
-          darkSteel
+          frameMat
         );
 
-      bottom.position.set(
+      bottomRail.position.set(
         L /
           2,
         0,
@@ -6778,24 +6845,25 @@ function buildDetailedContainer(
       );
 
       group.add(
-        bottom
+        bottomRail
       );
 
-      const top =
-        bottom.clone();
+      const topRail =
+        bottomRail.clone();
 
-      top.position.y =
+      topRail.position.y =
         H;
 
       group.add(
-        top
+        topRail
       );
     }
   );
 
 
-  /* END CROSS RAILS */
-
+  /*
+    Front/back top and bottom cross-members
+  */
   [
     0,
     L
@@ -6806,17 +6874,19 @@ function buildDetailedContainer(
         H
       ].forEach(
         y => {
-          const beam =
+          const crossRail =
             new THREE.Mesh(
               new THREE.BoxGeometry(
                 rail,
                 rail,
-                W
+                W +
+                  post *
+                  2
               ),
-              darkSteel
+              frameMat
             );
 
-          beam.position.set(
+          crossRail.position.set(
             x,
             y,
             W /
@@ -6824,7 +6894,7 @@ function buildDetailedContainer(
           );
 
           group.add(
-            beam
+            crossRail
           );
         }
       );
@@ -6832,8 +6902,9 @@ function buildDetailedContainer(
   );
 
 
-  /* CORNER POSTS */
-
+  /*
+    Corner posts
+  */
   [
     [0, 0],
     [0, W],
@@ -6846,17 +6917,17 @@ function buildDetailedContainer(
         z
       ]
     ) => {
-      const corner =
+      const cornerPost =
         new THREE.Mesh(
           new THREE.BoxGeometry(
             post,
             H,
             post
           ),
-          steel
+          frameMat
         );
 
-      corner.position.set(
+      cornerPost.position.set(
         x,
         H /
           2,
@@ -6864,150 +6935,239 @@ function buildDetailedContainer(
       );
 
       group.add(
-        corner
+        cornerPost
       );
     }
   );
 
 
-  /* FAR SIDE WALL */
+  /*
+    Corner castings: chunkier blocks at all eight corners.
+  */
+  [
+    [0, 0, 0],
+    [0, 0, W],
+    [0, H, 0],
+    [0, H, W],
+    [L, 0, 0],
+    [L, 0, W],
+    [L, H, 0],
+    [L, H, W]
+  ].forEach(
+    (
+      [
+        x,
+        y,
+        z
+      ]
+    ) => {
+      const casting =
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            0.13,
+            0.13,
+            0.13
+          ),
+          frameHighlightMat
+        );
 
-  const farWall =
+      casting.position.set(
+        x,
+        y,
+        z
+      );
+
+      group.add(
+        casting
+      );
+    }
+  );
+
+
+  /* =====================================================
+     CORRUGATED FAR SIDE WALL
+  ===================================================== */
+
+  const farWallBase =
     new THREE.Mesh(
       new THREE.BoxGeometry(
         L,
-        H,
-        0.018
+        H -
+          0.13,
+        panelThickness
       ),
-      wallMaterial
+      panelMat
     );
 
-  farWall.position.set(
+  farWallBase.position.set(
     L /
       2,
     H /
       2,
-    W
+    W +
+      0.012
   );
 
   group.add(
-    farWall
+    farWallBase
   );
 
+  const sideRibPitch =
+    0.185;
 
-  /* NEAR SIDE: CUTAWAY OR FULL */
-
-  if (
-    containerVisualMode !==
-    'cutaway'
-  ) {
-    const nearWall =
-      farWall.clone();
-
-    nearWall.position.z =
-      0;
-
-    group.add(
-      nearWall
-    );
-  }
-
-
-  /* ROOF */
-
-  const roof =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        L,
-        0.018,
-        W
-      ),
-      wallMaterial
-    );
-
-  roof.position.set(
-    L /
-      2,
-    H,
-    W /
-      2
-  );
-
-  group.add(
-    roof
-  );
-
-
-  /* SIDE CORRUGATION RIBS */
-
-  const ribCount =
+  const sideRibCount =
     Math.max(
-      20,
+      24,
       Math.floor(
         L /
-        0.22
+        sideRibPitch
       )
     );
 
   for (
     let i = 1;
     i <
-    ribCount;
+    sideRibCount;
     i++
   ) {
     const x =
       L *
       i /
-      ribCount;
+      sideRibCount;
 
-    const farRib =
+    const rib =
       new THREE.Mesh(
         new THREE.BoxGeometry(
-          0.018,
-          H *
-            0.92,
-          0.028
+          0.022,
+          H -
+            0.18,
+          0.045
         ),
-        steel
+        panelDarkMat
       );
 
-    farRib.position.set(
+    rib.position.set(
       x,
       H /
         2,
       W +
-        0.012
+        0.032
     );
 
     group.add(
-      farRib
+      rib
+    );
+  }
+
+
+  /* =====================================================
+     NEAR SIDE
+     CUTAWAY = open.
+     FULL SHELL = translucent corrugated wall.
+  ===================================================== */
+
+  if (
+    containerVisualMode !==
+    'cutaway'
+  ) {
+    const nearWall =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          L,
+          H -
+            0.13,
+          panelThickness
+        ),
+        panelTransparentMat
+      );
+
+    nearWall.position.set(
+      L /
+        2,
+      H /
+        2,
+      -0.012
     );
 
-    if (
-      containerVisualMode !==
-      'cutaway'
-    ) {
-      const nearRib =
-        farRib.clone();
+    group.add(
+      nearWall
+    );
 
-      nearRib.position.z =
-        -0.012;
+    for (
+      let i = 1;
+      i <
+      sideRibCount;
+      i++
+    ) {
+      const x =
+        L *
+        i /
+        sideRibCount;
+
+      const rib =
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            0.022,
+            H -
+              0.18,
+            0.035
+          ),
+          frameHighlightMat
+        );
+
+      rib.position.set(
+        x,
+        H /
+          2,
+        -0.032
+      );
 
       group.add(
-        nearRib
+        rib
       );
     }
   }
 
 
-  /* ROOF RIBS */
+  /* =====================================================
+     CORRUGATED ROOF
+  ===================================================== */
+
+  const roofBase =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        L,
+        panelThickness,
+        W
+      ),
+      panelMat
+    );
+
+  roofBase.position.set(
+    L /
+      2,
+    H +
+      0.012,
+    W /
+      2
+  );
+
+  group.add(
+    roofBase
+  );
+
+  /*
+    Roof corrugations run across the container width.
+  */
+  const roofRibPitch =
+    0.19;
 
   const roofRibCount =
     Math.max(
-      12,
+      24,
       Math.floor(
         L /
-        0.45
+        roofRibPitch
       )
     );
 
@@ -7022,44 +7182,49 @@ function buildDetailedContainer(
       i /
       roofRibCount;
 
-    const rib =
+    const roofRib =
       new THREE.Mesh(
         new THREE.BoxGeometry(
-          0.025,
-          0.028,
-          W
+          0.026,
+          0.038,
+          W -
+            0.05
         ),
-        steel
+        panelDarkMat
       );
 
-    rib.position.set(
+    roofRib.position.set(
       x,
       H +
-        0.018,
+        0.037,
       W /
         2
     );
 
     group.add(
-      rib
+      roofRib
     );
   }
 
 
-  /* BACK WALL (x=0) */
+  /* =====================================================
+     BACK WALL (x = 0)
+  ===================================================== */
 
   const backWall =
     new THREE.Mesh(
       new THREE.BoxGeometry(
-        0.018,
-        H,
-        W
+        panelThickness,
+        H -
+          0.14,
+        W -
+          0.14
       ),
-      wallMaterial
+      panelMat
     );
 
   backWall.position.set(
-    0,
+    -0.012,
     H /
       2,
     W /
@@ -7070,53 +7235,92 @@ function buildDetailedContainer(
     backWall
   );
 
+  /*
+    Vertical corrugation strips on back wall.
+  */
+  const backRibCount =
+    12;
 
-  /* DOOR FRAME AT x=L */
+  for (
+    let i = 1;
+    i <
+    backRibCount;
+    i++
+  ) {
+    const z =
+      W *
+      i /
+      backRibCount;
 
-  const doorPanelMaterial =
-    new THREE.MeshPhysicalMaterial({
+    const rib =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          0.04,
+          H -
+            0.20,
+          0.026
+        ),
+        panelDarkMat
+      );
+
+    rib.position.set(
+      -0.035,
+      H /
+        2,
+      z
+    );
+
+    group.add(
+      rib
+    );
+  }
+
+
+  /* =====================================================
+     DOOR END (x = L)
+  ===================================================== */
+
+  const doorPanelMat =
+    new THREE.MeshStandardMaterial({
       color:
-        0x8191a2,
-
-      transparent:
-        true,
-
-      opacity:
-        containerVisualMode ===
-          'cutaway'
-          ? 0.10
-          : 0.24,
+        0x718190,
 
       roughness:
-        0.45,
+        0.44,
 
       metalness:
-        0.30,
-
-      depthWrite:
-        false
+        0.58
     });
+
+  const doorFrameDepth =
+    0.055;
+
+  /*
+    Two solid door leaves
+  */
+  const doorWidth =
+    W /
+    2 -
+    0.055;
 
   const leftDoor =
     new THREE.Mesh(
       new THREE.BoxGeometry(
-        0.022,
-        H *
-          0.94,
-        W /
-          2 -
-          0.035
+        0.030,
+        H -
+          0.16,
+        doorWidth
       ),
-      doorPanelMaterial
+      doorPanelMat
     );
 
   leftDoor.position.set(
     L +
-      0.008,
+      0.018,
     H /
       2,
-    W /
-      4
+    W *
+      0.25
   );
 
   group.add(
@@ -7135,33 +7339,130 @@ function buildDetailedContainer(
   );
 
 
-  /* DOOR LOCKING BARS */
+  /*
+    Door corrugations
+  */
+  const doorRibCount =
+    7;
 
+  for (
+    let leaf = 0;
+    leaf <
+    2;
+    leaf++
+  ) {
+    const startZ =
+      leaf ===
+      0
+        ? 0
+        : W /
+          2;
+
+    const endZ =
+      leaf ===
+      0
+        ? W /
+          2
+        : W;
+
+    for (
+      let i = 1;
+      i <
+      doorRibCount;
+      i++
+    ) {
+      const z =
+        startZ +
+        (
+          endZ -
+          startZ
+        ) *
+        i /
+        doorRibCount;
+
+      const rib =
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            0.045,
+            H -
+              0.22,
+            0.020
+          ),
+          panelDarkMat
+        );
+
+      rib.position.set(
+        L +
+          0.045,
+        H /
+          2,
+        z
+      );
+
+      group.add(
+        rib
+      );
+    }
+  }
+
+
+  /*
+    Centre door seam
+  */
+  const centreSeam =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        doorFrameDepth,
+        H -
+          0.11,
+        0.035
+      ),
+      frameMat
+    );
+
+  centreSeam.position.set(
+    L +
+      0.045,
+    H /
+      2,
+    W /
+      2
+  );
+
+  group.add(
+    centreSeam
+  );
+
+
+  /*
+    Four locking bars
+  */
   [
     W *
-      0.18,
+      0.16,
     W *
-      0.36,
+      0.35,
     W *
-      0.64,
+      0.65,
     W *
-      0.82
+      0.84
   ].forEach(
     z => {
       const bar =
         new THREE.Mesh(
-          new THREE.BoxGeometry(
-            0.045,
+          new THREE.CylinderGeometry(
+            0.018,
+            0.018,
             H *
-              0.84,
-            0.025
+              0.78,
+            10
           ),
-          darkSteel
+          frameHighlightMat
         );
 
       bar.position.set(
         L +
-          0.04,
+          0.075,
         H /
           2,
         z
@@ -7170,35 +7471,123 @@ function buildDetailedContainer(
       group.add(
         bar
       );
+
+      /*
+        Locking handles
+      */
+      const handle =
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            0.055,
+            0.025,
+            0.14
+          ),
+          frameMat
+        );
+
+      handle.position.set(
+        L +
+          0.095,
+        H *
+          0.48,
+        z +
+          0.035
+      );
+
+      group.add(
+        handle
+      );
     }
   );
 
 
-  /* DOOR CENTRE SEAM */
+  /* =====================================================
+     LOWER SIDE CROSS-MEMBERS / BASE DETAIL
+  ===================================================== */
 
-  const seam =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        0.04,
-        H *
-          0.94,
-        0.025
-      ),
-      darkSteel
+  const crossMemberCount =
+    18;
+
+  for (
+    let i = 1;
+    i <
+    crossMemberCount;
+    i++
+  ) {
+    const x =
+      L *
+      i /
+      crossMemberCount;
+
+    const member =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          0.035,
+          0.035,
+          W
+        ),
+        frameMat
+      );
+
+    member.position.set(
+      x,
+      -0.055,
+      W /
+        2
     );
 
-  seam.position.set(
-    L +
-      0.035,
-    H /
-      2,
-    W /
-      2
-  );
+    group.add(
+      member
+    );
+  }
 
-  group.add(
-    seam
-  );
+
+  /* =====================================================
+     SMALL SAFETY / CAUTION STRIP AT DOOR TOP
+  ===================================================== */
+
+  const stripeCount =
+    8;
+
+  for (
+    let i = 0;
+    i <
+    stripeCount;
+    i++
+  ) {
+    const stripe =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          0.040,
+          0.045,
+          W /
+            stripeCount *
+            0.72
+        ),
+        i %
+        2 ===
+        0
+          ? safetyMat
+          : frameMat
+      );
+
+    stripe.position.set(
+      L +
+        0.058,
+      H -
+        0.11,
+      (
+        i +
+        0.5
+      ) *
+      W /
+      stripeCount
+    );
+
+    group.add(
+      stripe
+    );
+  }
 
 
   return group;

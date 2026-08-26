@@ -2463,3 +2463,22 @@ body.is-busy {
     height: 410px;
   }
 }
+
+
+/* REFERENCE-STYLE CONTAINER VISUAL */
+
+.viewer {
+  background:
+    radial-gradient(
+      circle at 48% 40%,
+      #ffffff 0%,
+      #f4f7fb 52%,
+      #edf2f7 100%
+    );
+}
+
+.viewer canvas {
+  filter:
+    contrast(1.025)
+    saturate(1.02);
+}
