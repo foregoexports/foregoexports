@@ -86,6 +86,15 @@ let cargoGroup;
 let autoRotate = false;
 let currentView = '3d';
 
+let loadingStrategy = {
+  weightMode: 'auto',
+  frontBackMode: 'back-first',
+  lateralMode: 'left-first',
+  orientationMode: 'auto-mix',
+  sequence: []
+};
+
+
 
 /* =========================================================
    ELEMENTS
@@ -833,6 +842,10 @@ async function openPlan(planId) {
 
   plan = data.plan;
   items = data.items || [];
+
+  loadStrategyForPlan();
+  ensureStrategySequence();
+  renderStrategyControls();
 
   planNumber.textContent =
     plan.Plan_ID;
@@ -1635,6 +1648,10 @@ async function reloadPlan() {
 ========================================================= */
 
 function refreshEverything() {
+  ensureStrategySequence();
+  renderStrategyControls();
+  renderCustomSequence();
+
   const totals =
     calculateTotals();
 
@@ -2016,6 +2033,25 @@ function renderCargoList() {
           ) || 'Auto'}
         </span>
       </div>
+
+      <div class="weight-placement-row">
+        <span>⚖</span>
+
+        <span>
+          ${formatDecimal(
+            weightFromKG(
+              item.Gross_Weight_Kg
+            ),
+            2
+          )} ${weightLabel()} / package
+        </span>
+
+        <strong>
+          ${getWeightPriorityLabel(
+            item
+          )}
+        </strong>
+      </div>
       `;
 
     card
@@ -2362,16 +2398,7 @@ function calculatePacking() {
   const results = [];
 
   const sortedItems =
-    [...items]
-      .sort(
-        (a, b) =>
-          Number(
-            a.Loading_Order || 0
-          ) -
-          Number(
-            b.Loading_Order || 0
-          )
-      );
+    getStrategySortedItems();
 
   sortedItems.forEach(item => {
     const requested =
@@ -2839,18 +2866,33 @@ function mixedPlacementScore(
     spaceVolume -
     boxVolume;
 
+  const longitudinalScore =
+    strategyLongitudinalScore(
+      space,
+      orientation,
+      container
+    );
+
+  const lateralScore =
+    strategyLateralScore(
+      space,
+      orientation,
+      container
+    );
+
   return [
-    roundScore(
-      space.x
+    /*
+      Weight and stability always prefer the lowest available
+      free-space first unless the user explicitly selected
+      custom sequence instead of weight-based ordering.
+    */
+    strategyVerticalScore(
+      space
     ),
 
-    roundScore(
-      space.z
-    ),
+    longitudinalScore,
 
-    roundScore(
-      space.y
-    ),
+    lateralScore,
 
     roundScore(
       wastedWidth
@@ -2871,6 +2913,7 @@ function mixedPlacementScore(
     )
   ];
 }
+
 
 
 function compareMixedScores(
@@ -3154,24 +3197,63 @@ function freeSpacePrioritySort(
   a,
   b
 ) {
-  /*
-    Practical loading priority:
-      x = along container length
-      z = height
-      y = width
-  */
+  const container =
+    selectedContainer();
+
+  if (!container) {
+    return (
+      a.z -
+      b.z ||
+      a.x -
+      b.x ||
+      a.y -
+      b.y
+    );
+  }
+
+  const C = {
+    L:
+      Number(
+        container.Internal_Length_mm
+      ),
+
+    W:
+      Number(
+        container.Internal_Width_mm
+      )
+  };
+
+  const aLong =
+    strategyLongitudinalPointScore(
+      a,
+      C
+    );
+
+  const bLong =
+    strategyLongitudinalPointScore(
+      b,
+      C
+    );
+
+  const aLat =
+    strategyLateralPointScore(
+      a,
+      C
+    );
+
+  const bLat =
+    strategyLateralPointScore(
+      b,
+      C
+    );
 
   return (
-    a.x -
-    b.x ||
     a.z -
     b.z ||
-    a.y -
-    b.y ||
-
-    /*
-      For otherwise-equal spaces, use the larger one first.
-    */
+    aLong -
+    bLong ||
+    aLat -
+    bLat ||
     (
       b.l *
       b.w *
@@ -3203,6 +3285,52 @@ function allowedOrientations(
     Number(
       item.Height_mm
     );
+
+  /*
+    Global Auto Mix can temporarily allow all six orientations
+    without changing the saved per-product orientation flags.
+  */
+  if (
+    loadingStrategy.orientationMode ===
+    'auto-mix'
+  ) {
+    const all = [
+      { l: L, w: W, h: H, type: 'default' },
+      { l: W, w: L, h: H, type: 'floor' },
+      { l: L, w: H, h: W, type: 'side' },
+      { l: H, w: L, h: W, type: 'side' },
+      { l: W, w: H, h: L, type: 'side' },
+      { l: H, w: W, h: L, type: 'side' }
+    ];
+
+    const uniqueAll =
+      new Map();
+
+    all.forEach(
+      orientation => {
+        const key =
+          `${orientation.l}-${orientation.w}-${orientation.h}`;
+
+        if (
+          !uniqueAll.has(
+            key
+          )
+        ) {
+          uniqueAll.set(
+            key,
+            {
+              ...orientation,
+              key
+            }
+          );
+        }
+      }
+    );
+
+    return [
+      ...uniqueAll.values()
+    ];
+  }
 
   const floorRotate =
     toBoolean(
@@ -3502,6 +3630,716 @@ function formatOrientationBreakdown(
         `${entry.count} ${entry.label}`
     )
     .join(' · ');
+}
+
+
+
+/* =========================================================
+   LOADING STRATEGY
+========================================================= */
+
+function strategyStorageKey() {
+  return (
+    plan?.Plan_ID
+      ? `forego_loading_strategy_${plan.Plan_ID}`
+      : ''
+  );
+}
+
+
+function loadStrategyForPlan() {
+  const key =
+    strategyStorageKey();
+
+  if (!key) {
+    return;
+  }
+
+  try {
+    const saved =
+      JSON.parse(
+        localStorage.getItem(
+          key
+        ) ||
+        'null'
+      );
+
+    if (saved) {
+      loadingStrategy = {
+        ...loadingStrategy,
+        ...saved
+      };
+    }
+  } catch (error) {
+    console.warn(
+      'Unable to load saved strategy',
+      error
+    );
+  }
+}
+
+
+function saveStrategyForPlan() {
+  const key =
+    strategyStorageKey();
+
+  if (!key) {
+    return;
+  }
+
+  localStorage.setItem(
+    key,
+    JSON.stringify(
+      loadingStrategy
+    )
+  );
+}
+
+
+function ensureStrategySequence() {
+  const ids =
+    items.map(
+      item =>
+        item.Item_ID
+    );
+
+  const existing =
+    (
+      loadingStrategy.sequence ||
+      []
+    ).filter(
+      id =>
+        ids.includes(
+          id
+        )
+    );
+
+  ids.forEach(
+    id => {
+      if (
+        !existing.includes(
+          id
+        )
+      ) {
+        existing.push(
+          id
+        );
+      }
+    }
+  );
+
+  loadingStrategy.sequence =
+    existing;
+}
+
+
+function renderStrategyControls() {
+  const groups = {
+    weightMode:
+      loadingStrategy.weightMode,
+
+    frontBackMode:
+      loadingStrategy.frontBackMode,
+
+    lateralMode:
+      loadingStrategy.lateralMode,
+
+    orientationMode:
+      loadingStrategy.orientationMode
+  };
+
+  Object.entries(
+    groups
+  ).forEach(
+    ([name, value]) => {
+      const input =
+        document.querySelector(
+          `input[name="${name}"][value="${value}"]`
+        );
+
+      if (input) {
+        input.checked = true;
+      }
+    }
+  );
+
+  const summary =
+    document.getElementById(
+      'strategySummary'
+    );
+
+  if (summary) {
+    summary.textContent =
+      strategySummaryText();
+  }
+}
+
+
+function renderCustomSequence() {
+  const list =
+    document.getElementById(
+      'customSequenceList'
+    );
+
+  if (!list) {
+    return;
+  }
+
+  if (!items.length) {
+    list.innerHTML =
+      `
+      <div class="empty-state">
+        Add cargo to configure a custom loading sequence.
+      </div>
+      `;
+
+    return;
+  }
+
+  list.innerHTML =
+    '';
+
+  loadingStrategy.sequence
+    .forEach(
+      (
+        itemId,
+        index
+      ) => {
+        const item =
+          items.find(
+            cargo =>
+              cargo.Item_ID ===
+              itemId
+          );
+
+        if (!item) {
+          return;
+        }
+
+        const row =
+          document.createElement(
+            'div'
+          );
+
+        row.className =
+          'sequence-row';
+
+        row.innerHTML =
+          `
+          <div class="sequence-index">
+            ${index + 1}
+          </div>
+
+          <span
+            class="colour-dot"
+            style="
+              background:
+              ${escapeHtml(
+                item.Colour
+              )}
+            "
+          ></span>
+
+          <div class="sequence-name">
+            ${escapeHtml(
+              item.Product_Name
+            )}
+          </div>
+
+          <div class="sequence-weight">
+            ${formatDecimal(
+              weightFromKG(
+                item.Gross_Weight_Kg
+              ),
+              2
+            )} ${weightLabel()}/pkg
+          </div>
+
+          <button
+            class="sequence-btn move-up"
+            type="button"
+            title="Move earlier"
+            ${index === 0 ? 'disabled' : ''}
+          >
+            ↑
+          </button>
+
+          <button
+            class="sequence-btn move-down"
+            type="button"
+            title="Move later"
+            ${
+              index ===
+              loadingStrategy.sequence.length - 1
+                ? 'disabled'
+                : ''
+            }
+          >
+            ↓
+          </button>
+          `;
+
+        row
+          .querySelector(
+            '.move-up'
+          )
+          .addEventListener(
+            'click',
+            () =>
+              moveSequenceItem(
+                itemId,
+                -1
+              )
+          );
+
+        row
+          .querySelector(
+            '.move-down'
+          )
+          .addEventListener(
+            'click',
+            () =>
+              moveSequenceItem(
+                itemId,
+                1
+              )
+          );
+
+        list.appendChild(
+          row
+        );
+      }
+    );
+}
+
+
+function moveSequenceItem(
+  itemId,
+  direction
+) {
+  const index =
+    loadingStrategy.sequence
+      .indexOf(
+        itemId
+      );
+
+  const target =
+    index +
+    direction;
+
+  if (
+    index <
+    0 ||
+    target <
+    0 ||
+    target >=
+    loadingStrategy.sequence.length
+  ) {
+    return;
+  }
+
+  const copy =
+    [
+      ...loadingStrategy.sequence
+    ];
+
+  [
+    copy[index],
+    copy[target]
+  ] =
+  [
+    copy[target],
+    copy[index]
+  ];
+
+  loadingStrategy.sequence =
+    copy;
+
+  loadingStrategy.weightMode =
+    'sequence';
+
+  saveStrategyForPlan();
+
+  refreshEverything();
+
+  showToast(
+    'Custom loading sequence updated.'
+  );
+}
+
+
+function resetLoadingStrategy() {
+  loadingStrategy = {
+    weightMode:
+      'auto',
+
+    frontBackMode:
+      'back-first',
+
+    lateralMode:
+      'left-first',
+
+    orientationMode:
+      'auto-mix',
+
+    sequence:
+      items.map(
+        item =>
+          item.Item_ID
+      )
+  };
+
+  saveStrategyForPlan();
+
+  refreshEverything();
+
+  showToast(
+    'Loading strategy reset.'
+  );
+}
+
+
+function strategySummaryText() {
+  const weight = {
+    auto:
+      'Heavy Below',
+
+    'floor-first':
+      'Heavy Floor First',
+
+    sequence:
+      'Custom Sequence'
+  }[
+    loadingStrategy.weightMode
+  ];
+
+  const frontBack = {
+    'back-first':
+      'Back → Front',
+
+    'front-first':
+      'Front → Back',
+
+    balanced:
+      'Balanced Length'
+  }[
+    loadingStrategy.frontBackMode
+  ];
+
+  const lateral = {
+    'left-first':
+      'Left → Right',
+
+    'right-first':
+      'Right → Left',
+
+    balanced:
+      'Balanced Width'
+  }[
+    loadingStrategy.lateralMode
+  ];
+
+  const orientation =
+    loadingStrategy.orientationMode ===
+    'auto-mix'
+      ? 'Auto Mix'
+      : 'Per Item';
+
+  return (
+    `${weight} · ` +
+    `${frontBack} · ` +
+    `${lateral} · ` +
+    `${orientation}`
+  );
+}
+
+
+function getStrategySortedItems() {
+  const copy =
+    [
+      ...items
+    ];
+
+  if (
+    loadingStrategy.weightMode ===
+    'sequence'
+  ) {
+    const order =
+      new Map(
+        loadingStrategy.sequence
+          .map(
+            (
+              id,
+              index
+            ) => [
+              id,
+              index
+            ]
+          )
+      );
+
+    return copy.sort(
+      (a, b) =>
+        (
+          order.get(
+            a.Item_ID
+          ) ??
+          999999
+        ) -
+        (
+          order.get(
+            b.Item_ID
+          ) ??
+          999999
+        )
+    );
+  }
+
+  /*
+    Both automatic modes are heavy-first. The difference is in
+    free-space priority: floor-first strongly exhausts low spaces.
+  */
+  return copy.sort(
+    (a, b) => {
+      const weightDiff =
+        Number(
+          b.Gross_Weight_Kg ||
+          0
+        ) -
+        Number(
+          a.Gross_Weight_Kg ||
+          0
+        );
+
+      if (
+        Math.abs(
+          weightDiff
+        ) >
+        0.0001
+      ) {
+        return weightDiff;
+      }
+
+      return (
+        Number(
+          a.Loading_Order ||
+          0
+        ) -
+        Number(
+          b.Loading_Order ||
+          0
+        )
+      );
+    }
+  );
+}
+
+
+function strategyVerticalScore(
+  space
+) {
+  if (
+    loadingStrategy.weightMode ===
+    'floor-first'
+  ) {
+    /*
+      Very strong preference for every remaining floor-level space
+      before any upper free-space is considered.
+    */
+    return (
+      space.z <=
+      0.001
+        ? 0
+        : 1000000 +
+          roundScore(
+            space.z
+          )
+    );
+  }
+
+  return roundScore(
+    space.z
+  );
+}
+
+
+function strategyLongitudinalScore(
+  space,
+  orientation,
+  container
+) {
+  const mode =
+    loadingStrategy.frontBackMode;
+
+  /*
+    Coordinate convention:
+      x = 0              -> BACK WALL
+      x = container.L    -> DOOR / FRONT
+  */
+
+  if (
+    mode ===
+    'front-first'
+  ) {
+    return roundScore(
+      container.L -
+      (
+        space.x +
+        orientation.l
+      )
+    );
+  }
+
+  if (
+    mode ===
+    'balanced'
+  ) {
+    const boxCentre =
+      space.x +
+      orientation.l /
+      2;
+
+    return roundScore(
+      Math.abs(
+        boxCentre -
+        container.L /
+        2
+      )
+    );
+  }
+
+  return roundScore(
+    space.x
+  );
+}
+
+
+function strategyLateralScore(
+  space,
+  orientation,
+  container
+) {
+  const mode =
+    loadingStrategy.lateralMode;
+
+  /*
+    Coordinate convention:
+      y = 0              -> LEFT WALL
+      y = container.W    -> RIGHT WALL
+  */
+
+  if (
+    mode ===
+    'right-first'
+  ) {
+    return roundScore(
+      container.W -
+      (
+        space.y +
+        orientation.w
+      )
+    );
+  }
+
+  if (
+    mode ===
+    'balanced'
+  ) {
+    const boxCentre =
+      space.y +
+      orientation.w /
+      2;
+
+    return roundScore(
+      Math.abs(
+        boxCentre -
+        container.W /
+        2
+      )
+    );
+  }
+
+  return roundScore(
+    space.y
+  );
+}
+
+
+function strategyLongitudinalPointScore(
+  space,
+  container
+) {
+  const mode =
+    loadingStrategy.frontBackMode;
+
+  if (
+    mode ===
+    'front-first'
+  ) {
+    return (
+      container.L -
+      (
+        space.x +
+        space.l
+      )
+    );
+  }
+
+  if (
+    mode ===
+    'balanced'
+  ) {
+    return Math.abs(
+      (
+        space.x +
+        space.l /
+        2
+      ) -
+      container.L /
+      2
+    );
+  }
+
+  return space.x;
+}
+
+
+function strategyLateralPointScore(
+  space,
+  container
+) {
+  const mode =
+    loadingStrategy.lateralMode;
+
+  if (
+    mode ===
+    'right-first'
+  ) {
+    return (
+      container.W -
+      (
+        space.y +
+        space.w
+      )
+    );
+  }
+
+  if (
+    mode ===
+    'balanced'
+  ) {
+    return Math.abs(
+      (
+        space.y +
+        space.w /
+        2
+      ) -
+      container.W /
+      2
+    );
+  }
+
+  return space.y;
 }
 
 
@@ -4732,6 +5570,41 @@ async function withButtonLoader(
 ========================================================= */
 
 function bindEvents() {
+  document
+    .querySelectorAll(
+      '.strategy-option input[type="radio"]'
+    )
+    .forEach(
+      input => {
+        input.addEventListener(
+          'change',
+          () => {
+            loadingStrategy[
+              input.name
+            ] =
+              input.value;
+
+            saveStrategyForPlan();
+
+            refreshEverything();
+
+            showToast(
+              'Loading strategy updated.'
+            );
+          }
+        );
+      }
+    );
+
+  document
+    .getElementById(
+      'resetStrategyBtn'
+    )
+    ?.addEventListener(
+      'click',
+      resetLoadingStrategy
+    );
+
   mobileForm.addEventListener(
     'submit',
     event => {
@@ -5115,6 +5988,74 @@ function setValue(id, value) {
     .getElementById(id)
     .value =
       value ?? '';
+}
+
+
+function getWeightPriorityLabel(
+  item
+) {
+  if (!items.length) {
+    return '';
+  }
+
+  const weights =
+    items
+      .map(
+        cargo =>
+          Number(
+            cargo.Gross_Weight_Kg || 0
+          )
+      )
+      .sort(
+        (a, b) =>
+          a - b
+      );
+
+  const min =
+    weights[0];
+
+  const max =
+    weights[
+      weights.length - 1
+    ];
+
+  const current =
+    Number(
+      item.Gross_Weight_Kg || 0
+    );
+
+  if (
+    Math.abs(
+      max - min
+    ) <
+    0.001
+  ) {
+    return 'Same weight';
+  }
+
+  const ratio =
+    (
+      current - min
+    ) /
+    (
+      max - min
+    );
+
+  if (
+    ratio >=
+    0.67
+  ) {
+    return 'Heavy · lower';
+  }
+
+  if (
+    ratio <=
+    0.33
+  ) {
+    return 'Light · upper';
+  }
+
+  return 'Medium';
 }
 
 
