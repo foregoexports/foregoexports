@@ -1157,63 +1157,282 @@ async function setOrientation(
     return;
   }
 
-  const payload = {
-    action: 'updateItem',
-    sessionToken,
-    Item_ID: itemId
+  /*
+    REAL-TIME PREVIEW
+    -----------------
+    We update the local item FIRST, recalculate the packing,
+    and redraw the 3D scene immediately.
+
+    The Google Sheet save happens afterwards in the background.
+
+    Orientation encoding using the existing two boolean fields:
+
+    Default
+      Rotate_Horizontal = false
+      Turn_Sideways     = false
+      => L × W × H only
+
+    Floor Rotate
+      Rotate_Horizontal = true
+      Turn_Sideways     = false
+      => W × L × H only
+
+    Sideways
+      Rotate_Horizontal = false
+      Turn_Sideways     = true
+      => best of the four vertical-side orientations
+
+    Auto Best Fit
+      Rotate_Horizontal = true
+      Turn_Sideways     = true
+      => best of all six orientations
+  */
+
+  const previousState = {
+    Rotate_Horizontal:
+      item.Rotate_Horizontal,
+
+    Turn_Sideways:
+      item.Turn_Sideways,
+
+    Turn_Upside_Down:
+      item.Turn_Upside_Down
   };
 
+  const beforeFit =
+    getItemFitResult(
+      itemId
+    );
+
   if (mode === 'default') {
-    payload.Rotate_Horizontal =
+    item.Rotate_Horizontal =
       false;
 
-    payload.Turn_Sideways =
-      false;
-
-    payload.Turn_Upside_Down =
+    item.Turn_Sideways =
       false;
   }
 
   if (mode === 'rotate') {
-    payload.Rotate_Horizontal =
+    item.Rotate_Horizontal =
       true;
+
+    item.Turn_Sideways =
+      false;
   }
 
   if (mode === 'sideways') {
-    payload.Turn_Sideways =
-      !toBoolean(
-        item.Turn_Sideways
-      );
+    item.Rotate_Horizontal =
+      false;
+
+    item.Turn_Sideways =
+      true;
+  }
+
+  if (mode === 'auto') {
+    item.Rotate_Horizontal =
+      true;
+
+    item.Turn_Sideways =
+      true;
   }
 
   if (mode === 'upside') {
-    payload.Turn_Upside_Down =
+    item.Turn_Upside_Down =
       !toBoolean(
         item.Turn_Upside_Down
       );
   }
 
-  setAutosaveState('saving');
+  /*
+    Immediate 3D + fit recalculation.
+    No API wait.
+  */
+  refreshEverything();
 
+  const afterFit =
+    getItemFitResult(
+      itemId
+    );
+
+  showOrientationFeedback(
+    item,
+    beforeFit,
+    afterFit,
+    mode
+  );
+
+  setAutosaveState(
+    'saving'
+  );
+
+  const payload = {
+    action:
+      'updateItem',
+
+    sessionToken,
+
+    Item_ID:
+      itemId,
+
+    Rotate_Horizontal:
+      toBoolean(
+        item.Rotate_Horizontal
+      ),
+
+    Turn_Sideways:
+      toBoolean(
+        item.Turn_Sideways
+      ),
+
+    Turn_Upside_Down:
+      toBoolean(
+        item.Turn_Upside_Down
+      )
+  };
+
+  try {
+    const result =
+      await apiPost(
+        payload
+      );
+
+    if (!result.ok) {
+      throw new Error(
+        result.message ||
+        'Unable to save orientation.'
+      );
+    }
+
+    setAutosaveState(
+      'saved'
+    );
+
+    /*
+      We intentionally do not reload the plan here.
+      Keeping the local state avoids a visual jump
+      and makes rotation feel instantaneous.
+    */
+
+  } catch (error) {
+    /*
+      If saving fails, restore the previous orientation
+      so the 3D view still reflects the saved backend data.
+    */
+    item.Rotate_Horizontal =
+      previousState.Rotate_Horizontal;
+
+    item.Turn_Sideways =
+      previousState.Turn_Sideways;
+
+    item.Turn_Upside_Down =
+      previousState.Turn_Upside_Down;
+
+    refreshEverything();
+
+    setAutosaveState(
+      'error'
+    );
+
+    showToast(
+      error.message ||
+      'Orientation save failed.',
+      'error',
+      3500
+    );
+  }
+}
+
+
+function getItemFitResult(
+  itemId
+) {
   const result =
-    await apiPost(payload);
+    packingResult ||
+    calculatePacking();
 
-  if (!result.ok) {
-    setAutosaveState('error');
-    hideViewerLoader();
-    alert(result.message);
+  return (
+    result.results.find(
+      row =>
+        row.item.Item_ID ===
+        itemId
+    ) ||
+    null
+  );
+}
+
+
+function showOrientationFeedback(
+  item,
+  beforeFit,
+  afterFit,
+  mode
+) {
+  if (mode === 'upside') {
+    showToast(
+      toBoolean(
+        item.Turn_Upside_Down
+      )
+        ? 'Upside-down handling enabled.'
+        : 'Upside-down handling disabled.'
+    );
+
     return;
   }
 
-  await reloadPlan();
-  await loadPlans();
+  const before =
+    Number(
+      beforeFit?.fitted ||
+      0
+    );
 
-  setAutosaveState('saved');
+  const after =
+    Number(
+      afterFit?.fitted ||
+      0
+    );
 
-  hideViewerLoader();
+  const delta =
+    after -
+    before;
+
+  const modeName = {
+    default:
+      'Default orientation',
+
+    rotate:
+      'Floor rotation',
+
+    sideways:
+      'Sideways rotation',
+
+    auto:
+      'Auto Best Fit'
+  }[mode] || 'Orientation';
+
+  if (delta > 0) {
+    showToast(
+      `${modeName}: fits ${formatNumber(after)} · +${formatNumber(delta)} more package${delta === 1 ? '' : 's'}.`,
+      'success',
+      3200
+    );
+
+    return;
+  }
+
+  if (delta < 0) {
+    showToast(
+      `${modeName}: fits ${formatNumber(after)} · ${formatNumber(Math.abs(delta))} fewer.`,
+      'warning',
+      3200
+    );
+
+    return;
+  }
 
   showToast(
-    'Cargo orientation updated.'
+    `${modeName}: fits ${formatNumber(after)} package${after === 1 ? '' : 's'}.`,
+    'success',
+    2200
   );
 }
 
@@ -1420,13 +1639,18 @@ async function reloadPlan() {
 ========================================================= */
 
 function refreshEverything() {
-  renderCargoList();
-
   const totals =
     calculateTotals();
 
   packingResult =
     calculatePacking();
+
+  /*
+    Cargo cards are rendered after packing is calculated,
+    so each card can show the LIVE fit and the orientation
+    currently being used by the stuffing engine.
+  */
+  renderCargoList();
 
   renderFitResults(
     packingResult
@@ -1477,19 +1701,47 @@ function renderCargoList() {
         0
       );
 
-    const rotateActive =
-      toBoolean(
-        item.Rotate_Horizontal
-      );
-
-    const sideActive =
-      toBoolean(
-        item.Turn_Sideways
+    const mode =
+      getOrientationMode(
+        item
       );
 
     const upsideActive =
       toBoolean(
         item.Turn_Upside_Down
+      );
+
+    const fitRow =
+      packingResult?.results
+        ?.find(
+          row =>
+            row.item.Item_ID ===
+            item.Item_ID
+        );
+
+    const fitted =
+      Number(
+        fitRow?.fitted ||
+        0
+      );
+
+    const requested =
+      Number(
+        fitRow?.requested ||
+        item.Quantity ||
+        0
+      );
+
+    const remaining =
+      Math.max(
+        0,
+        requested -
+        fitted
+      );
+
+    const liveOrientation =
+      orientationLabel(
+        fitRow?.orientation
       );
 
     const card =
@@ -1553,7 +1805,7 @@ function renderCargoList() {
         )} ${weightLabel()}
         <br>
 
-        Internal:
+        Box:
         ${formatDimension(
           item.Length_mm
         )}
@@ -1577,31 +1829,78 @@ function renderCargoList() {
         )} ${weightLabel()}
       </div>
 
+      <div class="live-fit-strip ${remaining > 0 ? 'has-remaining' : ''}">
+        <div>
+          <span>LIVE FIT</span>
+          <strong>
+            ${formatNumber(
+              fitted
+            )} / ${formatNumber(
+              requested
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>ORIENTATION USED</span>
+          <strong>
+            ${escapeHtml(
+              liveOrientation
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <span>REMAINING</span>
+          <strong>
+            ${formatNumber(
+              remaining
+            )}
+          </strong>
+        </div>
+      </div>
+
+      <div class="orientation-label">
+        Orientation — changes preview instantly
+      </div>
+
       <div class="orientation-row">
         <button
-          class="orientation-btn default-btn"
+          class="orientation-btn default-btn ${mode === 'default' ? 'active' : ''}"
           type="button"
+          title="Use original Length × Width × Height only"
         >
           Default
         </button>
 
         <button
-          class="orientation-btn rotate-btn ${rotateActive ? 'active' : ''}"
+          class="orientation-btn rotate-btn ${mode === 'rotate' ? 'active' : ''}"
           type="button"
+          title="Swap length and width on the container floor"
         >
-          Rotate Floor
+          Floor Rotate
         </button>
 
         <button
-          class="orientation-btn sideways-btn ${sideActive ? 'active' : ''}"
+          class="orientation-btn sideways-btn ${mode === 'sideways' ? 'active' : ''}"
           type="button"
+          title="Turn the carton onto its side and test the four sideways permutations"
         >
-          Rotate Sideways
+          Sideways
+        </button>
+
+        <button
+          class="orientation-btn auto-btn ${mode === 'auto' ? 'active' : ''}"
+          type="button"
+          title="Test all six box orientations and use the one that fits the most"
+        >
+          Auto Best Fit
         </button>
 
         <button
           class="orientation-btn upside-btn ${upsideActive ? 'active' : ''}"
           type="button"
+          title="Mark upside-down handling as permitted"
         >
           Upside Down
         </button>
@@ -1679,6 +1978,17 @@ function renderCargoList() {
       );
 
     card
+      .querySelector('.auto-btn')
+      .addEventListener(
+        'click',
+        () =>
+          setOrientation(
+            item.Item_ID,
+            'auto'
+          )
+      );
+
+    card
       .querySelector('.upside-btn')
       .addEventListener(
         'click',
@@ -1689,7 +1999,9 @@ function renderCargoList() {
           )
       );
 
-    cargoList.appendChild(card);
+    cargoList.appendChild(
+      card
+    );
   });
 }
 
@@ -2157,39 +2469,71 @@ function allowedOrientations(item) {
       item.Height_mm
     );
 
-  const values = [
-    [L, W, H]
-  ];
-
-  if (
+  const floorRotate =
     toBoolean(
       item.Rotate_Horizontal
-    )
+    );
+
+  const sideways =
+    toBoolean(
+      item.Turn_Sideways
+    );
+
+  let values = [];
+
+  /*
+    The two existing backend flags now represent four
+    useful user-selectable orientation modes.
+
+    00 = Default only
+    10 = Floor Rotate only
+    01 = Sideways only (best of 4 sideways permutations)
+    11 = Auto Best Fit (all 6 permutations)
+  */
+
+  if (
+    !floorRotate &&
+    !sideways
   ) {
-    values.push([
-      W,
-      L,
-      H
-    ]);
+    values = [
+      [L, W, H]
+    ];
   }
 
   if (
-    toBoolean(
-      item.Turn_Sideways
-    )
+    floorRotate &&
+    !sideways
   ) {
-    values.push(
+    values = [
+      [W, L, H]
+    ];
+  }
+
+  if (
+    !floorRotate &&
+    sideways
+  ) {
+    values = [
       [L, H, W],
       [H, L, W],
       [W, H, L],
       [H, W, L]
-    );
+    ];
   }
 
-  /*
-    Upside-down does not change the bounding box size,
-    but we retain the flag for handling/printing logic.
-  */
+  if (
+    floorRotate &&
+    sideways
+  ) {
+    values = [
+      [L, W, H],
+      [W, L, H],
+      [L, H, W],
+      [H, L, W],
+      [W, H, L],
+      [H, W, L]
+    ];
+  }
 
   const unique =
     new Map();
@@ -2210,6 +2554,68 @@ function allowedOrientations(item) {
   return [
     ...unique.values()
   ];
+}
+
+
+function getOrientationMode(
+  item
+) {
+  const floorRotate =
+    toBoolean(
+      item.Rotate_Horizontal
+    );
+
+  const sideways =
+    toBoolean(
+      item.Turn_Sideways
+    );
+
+  if (
+    floorRotate &&
+    sideways
+  ) {
+    return 'auto';
+  }
+
+  if (
+    floorRotate
+  ) {
+    return 'rotate';
+  }
+
+  if (
+    sideways
+  ) {
+    return 'sideways';
+  }
+
+  return 'default';
+}
+
+
+function orientationLabel(
+  orientation
+) {
+  if (
+    !orientation ||
+    !orientation.l ||
+    !orientation.w ||
+    !orientation.h
+  ) {
+    return '—';
+  }
+
+  return (
+    `${formatDimension(
+      orientation.l
+    )} × ` +
+    `${formatDimension(
+      orientation.w
+    )} × ` +
+    `${formatDimension(
+      orientation.h
+    )} ${dimensionLabel()}`
+  );
 }
 
 
