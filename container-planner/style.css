@@ -1512,3 +1512,148 @@ body.is-busy {
   margin-top: 2px;
   color: var(--muted);
 }
+
+
+/* BOX ROTATION ARROW CONTROLS */
+
+.orientation-icon-row {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+}
+
+.icon-orientation-btn {
+  min-width: 0;
+  min-height: 52px;
+
+  display: grid;
+  place-items: center;
+  gap: 2px;
+
+  padding: 5px 3px;
+
+  border-radius: 7px;
+}
+
+.icon-orientation-btn svg {
+  width: 22px;
+  height: 22px;
+
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+
+  transition:
+    transform .16s ease,
+    stroke-width .16s ease;
+}
+
+.icon-orientation-btn span {
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.icon-orientation-btn:hover svg {
+  transform: rotate(8deg) scale(1.04);
+}
+
+.icon-orientation-btn.active svg {
+  stroke-width: 2.15;
+}
+
+.icon-orientation-btn.rotate-btn:active svg {
+  transform: rotate(90deg);
+}
+
+.icon-orientation-btn.sideways-btn:active svg {
+  transform: rotate(-90deg);
+}
+
+.icon-orientation-btn.upside-btn:active svg {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 680px) {
+  .orientation-icon-row {
+    grid-template-columns: repeat(5, minmax(48px, 1fr));
+  }
+
+  .icon-orientation-btn {
+    min-height: 50px;
+  }
+}
+
+
+/* MIXED-ORIENTATION OPTIMISER */
+
+.mixed-badge {
+  padding: 2px 5px;
+
+  border: 1px solid #b8d1ff;
+  border-radius: 999px;
+
+  background: #eef4ff;
+  color: #245fb9;
+
+  font-size: 7px;
+  font-weight: 900;
+  letter-spacing: .045em;
+}
+
+.orientation-breakdown-text {
+  white-space: normal !important;
+  line-height: 1.3;
+}
+
+.breakdown-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+
+  margin-top: 4px;
+}
+
+.breakdown-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+
+  padding: 2px 5px;
+
+  border: 1px solid #dce3ec;
+  border-radius: 999px;
+
+  background: #f8fafc;
+  color: #627087;
+
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.breakdown-chip strong {
+  color: var(--text);
+  font-size: 8px;
+}
+
+.mixed-fit-row .fit-name {
+  align-items: flex-start;
+}
+
+.icon-orientation-btn.auto-btn.active {
+  border-color: #7258d6;
+  background: #f1edff;
+  color: #6446c6;
+}
+
+.realtime-tip {
+  border-color: #c8d9ff;
+  background:
+    linear-gradient(
+      135deg,
+      #f4f8ff,
+      #faf8ff
+    );
+}

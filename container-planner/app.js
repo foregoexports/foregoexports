@@ -1157,37 +1157,6 @@ async function setOrientation(
     return;
   }
 
-  /*
-    REAL-TIME PREVIEW
-    -----------------
-    We update the local item FIRST, recalculate the packing,
-    and redraw the 3D scene immediately.
-
-    The Google Sheet save happens afterwards in the background.
-
-    Orientation encoding using the existing two boolean fields:
-
-    Default
-      Rotate_Horizontal = false
-      Turn_Sideways     = false
-      => L × W × H only
-
-    Floor Rotate
-      Rotate_Horizontal = true
-      Turn_Sideways     = false
-      => W × L × H only
-
-    Sideways
-      Rotate_Horizontal = false
-      Turn_Sideways     = true
-      => best of the four vertical-side orientations
-
-    Auto Best Fit
-      Rotate_Horizontal = true
-      Turn_Sideways     = true
-      => best of all six orientations
-  */
-
   const previousState = {
     Rotate_Horizontal:
       item.Rotate_Horizontal,
@@ -1203,6 +1172,12 @@ async function setOrientation(
     getItemFitResult(
       itemId
     );
+
+  /*
+    IMPORTANT:
+    Auto Mix is encoded by BOTH existing backend flags being true.
+    No new Google Sheet column or Apps Script change is required.
+  */
 
   if (mode === 'default') {
     item.Rotate_Horizontal =
@@ -1244,8 +1219,8 @@ async function setOrientation(
   }
 
   /*
-    Immediate 3D + fit recalculation.
-    No API wait.
+    Recalculate locally FIRST.
+    This makes the 3D view and fitted quantity change immediately.
   */
   refreshEverything();
 
@@ -1307,17 +1282,7 @@ async function setOrientation(
       'saved'
     );
 
-    /*
-      We intentionally do not reload the plan here.
-      Keeping the local state avoids a visual jump
-      and makes rotation feel instantaneous.
-    */
-
   } catch (error) {
-    /*
-      If saving fails, restore the previous orientation
-      so the 3D view still reflects the saved backend data.
-    */
     item.Rotate_Horizontal =
       previousState.Rotate_Horizontal;
 
@@ -1397,17 +1362,48 @@ function showOrientationFeedback(
 
   const modeName = {
     default:
-      'Default orientation',
+      'Default',
 
     rotate:
-      'Floor rotation',
+      'Floor Rotate',
 
     sideways:
-      'Sideways rotation',
+      'Sideways',
 
     auto:
-      'Auto Best Fit'
-  }[mode] || 'Orientation';
+      'Auto Mix'
+  }[mode] ||
+  'Orientation';
+
+  const mixCount =
+    afterFit?.breakdown
+      ?.length ||
+    0;
+
+  if (
+    mode ===
+    'auto' &&
+    mixCount >
+    1
+  ) {
+    const mix =
+      afterFit.breakdown
+        .map(
+          entry =>
+            `${entry.count} ${entry.type === 'default' ? 'default' : entry.type === 'floor' ? 'floor-rotated' : 'sideways'}`
+        )
+        .join(' · ');
+
+    showToast(
+      `Auto Mix: fits ${formatNumber(after)} · ${mix}`,
+      delta >= 0
+        ? 'success'
+        : 'warning',
+      4200
+    );
+
+    return;
+  }
 
   if (delta > 0) {
     showToast(
@@ -1672,6 +1668,80 @@ function refreshEverything() {
 }
 
 
+
+function orientationIcon(type) {
+  const common =
+    `viewBox="0 0 24 24" aria-hidden="true" focusable="false"`;
+
+  if (type === 'default') {
+    return `
+      <svg ${common}>
+        <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
+        <path d="M5.3 8.7A8 8 0 0 1 19 6"></path>
+        <path d="M18.8 3.8 19 6.2l-2.4.2"></path>
+      </svg>
+    `;
+  }
+
+  if (type === 'rotate') {
+    return `
+      <svg ${common}>
+        <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
+        <path d="M4.8 12a7.2 7.2 0 1 1 2.1 5.1"></path>
+        <path d="M4.5 8.5 4.8 12l3.5-.3"></path>
+      </svg>
+    `;
+  }
+
+  if (type === 'sideways') {
+    return `
+      <svg ${common}>
+        <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
+        <path d="M12 4.8a7.2 7.2 0 1 1-5.1 2.1"></path>
+        <path d="M8.5 4.5 12 4.8l-.3 3.5"></path>
+      </svg>
+    `;
+  }
+
+  if (type === 'auto') {
+    return `
+      <svg ${common}>
+        <rect x="7.2" y="7.2" width="9.6" height="9.6" rx="1.5"></rect>
+        <path d="M5 12a7 7 0 0 1 12.6-4.2"></path>
+        <path d="M19 12a7 7 0 0 1-12.6 4.2"></path>
+        <path d="m17.4 4.6.2 3.2-3.2.2"></path>
+        <path d="m6.6 19.4-.2-3.2 3.2-.2"></path>
+      </svg>
+    `;
+  }
+
+  if (type === 'upside') {
+    return `
+      <svg ${common}>
+        <rect x="7" y="7" width="10" height="10" rx="1.5"></rect>
+        <path d="M6 6 4 4"></path>
+        <path d="M18 18 20 20"></path>
+        <path d="M4 8V4h4"></path>
+        <path d="M20 16v4h-4"></path>
+      </svg>
+    `;
+  }
+
+  return '';
+}
+
+
+function orientationButtonLabel(type) {
+  return {
+    default: 'Reset',
+    rotate: 'Floor',
+    sideways: 'Side',
+    auto: 'Auto',
+    upside: 'Flip'
+  }[type] || '';
+}
+
+
 /* =========================================================
    CARGO LIST
 ========================================================= */
@@ -1739,10 +1809,9 @@ function renderCargoList() {
         fitted
       );
 
-    const liveOrientation =
-      orientationLabel(
-        fitRow?.orientation
-      );
+    const breakdown =
+      fitRow?.breakdown ||
+      [];
 
     const card =
       document.createElement(
@@ -1770,6 +1839,12 @@ function renderCargoList() {
             item.Product_Name
           )}
         </div>
+
+        ${
+          fitRow?.mixed
+            ? `<span class="mixed-badge">MIXED</span>`
+            : ''
+        }
 
         <div class="cargo-spacer"></div>
 
@@ -1842,10 +1917,19 @@ function renderCargoList() {
         </div>
 
         <div>
-          <span>ORIENTATION USED</span>
-          <strong>
+          <span>
+            ${
+              fitRow?.mixed
+                ? 'MIXED ORIENTATIONS'
+                : 'ORIENTATION USED'
+            }
+          </span>
+
+          <strong class="orientation-breakdown-text">
             ${escapeHtml(
-              liveOrientation
+              formatOrientationBreakdown(
+                breakdown
+              )
             )}
           </strong>
         </div>
@@ -1861,48 +1945,58 @@ function renderCargoList() {
       </div>
 
       <div class="orientation-label">
-        Orientation — changes preview instantly
+        Rotate box — 3D preview updates instantly
       </div>
 
-      <div class="orientation-row">
+      <div class="orientation-row orientation-icon-row">
         <button
-          class="orientation-btn default-btn ${mode === 'default' ? 'active' : ''}"
+          class="orientation-btn icon-orientation-btn default-btn ${mode === 'default' ? 'active' : ''}"
           type="button"
-          title="Use original Length × Width × Height only"
+          aria-label="Reset to default orientation"
+          title="Use only the original box orientation"
         >
-          Default
+          ${orientationIcon('default')}
+          <span>Reset</span>
         </button>
 
         <button
-          class="orientation-btn rotate-btn ${mode === 'rotate' ? 'active' : ''}"
+          class="orientation-btn icon-orientation-btn rotate-btn ${mode === 'rotate' ? 'active' : ''}"
           type="button"
-          title="Swap length and width on the container floor"
+          aria-label="Rotate box on container floor"
+          title="Use floor-rotated cartons only"
         >
-          Floor Rotate
+          ${orientationIcon('rotate')}
+          <span>Floor</span>
         </button>
 
         <button
-          class="orientation-btn sideways-btn ${mode === 'sideways' ? 'active' : ''}"
+          class="orientation-btn icon-orientation-btn sideways-btn ${mode === 'sideways' ? 'active' : ''}"
           type="button"
-          title="Turn the carton onto its side and test the four sideways permutations"
+          aria-label="Turn box sideways"
+          title="Use sideways carton orientations"
         >
-          Sideways
+          ${orientationIcon('sideways')}
+          <span>Side</span>
         </button>
 
         <button
-          class="orientation-btn auto-btn ${mode === 'auto' ? 'active' : ''}"
+          class="orientation-btn icon-orientation-btn auto-btn ${mode === 'auto' ? 'active' : ''}"
           type="button"
-          title="Test all six box orientations and use the one that fits the most"
+          aria-label="Automatically mix box orientations for maximum fit"
+          title="Auto Best Fit — mix all six orientations to maximise fitted boxes"
         >
-          Auto Best Fit
+          ${orientationIcon('auto')}
+          <span>Auto Mix</span>
         </button>
 
         <button
-          class="orientation-btn upside-btn ${upsideActive ? 'active' : ''}"
+          class="orientation-btn icon-orientation-btn upside-btn ${upsideActive ? 'active' : ''}"
           type="button"
-          title="Mark upside-down handling as permitted"
+          aria-label="Allow box to be upside down"
+          title="Allow upside-down handling"
         >
-          Upside Down
+          ${orientationIcon('upside')}
+          <span>Flip</span>
         </button>
       </div>
 
@@ -2209,7 +2303,8 @@ function calculatePacking() {
   ) {
     return {
       placements: [],
-      results: []
+      results: [],
+      freeSpaces: []
     };
   }
 
@@ -2230,7 +2325,38 @@ function calculatePacking() {
       )
   };
 
-  let cursorX = 0;
+  /*
+    MIXED-ORIENTATION OPTIMISER
+    ---------------------------
+    Instead of choosing one orientation for an entire product,
+    the container is represented as a list of remaining free
+    rectangular spaces.
+
+    For every carton we:
+      1. Test every orientation currently allowed for that product.
+      2. Test it against every free space.
+      3. Pick the placement with the strongest fit score.
+      4. Split that free space into three non-overlapping spaces.
+      5. Repeat until all requested cartons are placed or no fit remains.
+
+    This means one product can be packed as, for example:
+      - 2 rows lengthwise
+      - 1 row floor-rotated
+      - a few cartons sideways in the remaining gap
+
+    Auto Best Fit allows all six box orientations and can mix them.
+  */
+
+  let freeSpaces = [
+    {
+      x: 0,
+      y: 0,
+      z: 0,
+      l: C.L,
+      w: C.W,
+      h: C.H
+    }
+  ];
 
   const placements = [];
   const results = [];
@@ -2253,207 +2379,816 @@ function calculatePacking() {
         item.Quantity || 0
       );
 
-    const remainingLength =
-      Math.max(
-        0,
-        C.L - cursorX
-      );
-
     const orientations =
       allowedOrientations(
         item
       );
 
-    let best = null;
+    let fitted = 0;
 
-    orientations.forEach(o => {
-      if (
-        o.l <= 0 ||
-        o.w <= 0 ||
-        o.h <= 0
-      ) {
-        return;
-      }
+    const breakdownMap =
+      new Map();
 
-      const across =
-        Math.floor(
-          C.W / o.w
-        );
-
-      let layers =
-        toBoolean(
-          item.Stackable
-        )
-          ? Math.floor(
-              C.H / o.h
-            )
-          : 1;
-
-      const maxLayers =
-        Number(
-          item.Max_Layers || 0
-        );
-
-      if (maxLayers > 0) {
-        layers =
-          Math.min(
-            layers,
-            maxLayers
-          );
-      }
-
-      const rows =
-        Math.floor(
-          remainingLength /
-          o.l
-        );
-
-      const capacity =
-        Math.max(
-          0,
-          across *
-          layers *
-          rows
-        );
-
-      const fit =
-        Math.min(
-          requested,
-          capacity
-        );
-
-      const rowsNeeded =
-        fit > 0
-          ? Math.ceil(
-              fit /
-              Math.max(
-                1,
-                across *
-                layers
-              )
-            )
-          : 0;
-
-      const usedLength =
-        rowsNeeded *
-        o.l;
-
-      const score =
-        fit * 1000000 -
-        usedLength;
-
-      if (
-        !best ||
-        score >
-        best.score
-      ) {
-        best = {
-          ...o,
-          across,
-          layers,
-          rows,
-          capacity,
-          fit,
-          rowsNeeded,
-          usedLength,
-          score
-        };
-      }
-    });
-
-    if (!best) {
-      best = {
-        l: 0,
-        w: 0,
-        h: 0,
-        across: 0,
-        layers: 0,
-        fit: 0,
-        rowsNeeded: 0,
-        usedLength: 0
-      };
-    }
-
-    let placed = 0;
+    /*
+      A safety cap prevents a malformed input from locking the browser.
+      Normal export plans will be far below this.
+    */
+    const maxIterations =
+      Math.min(
+        requested,
+        10000
+      );
 
     for (
-      let r = 0;
-      r < best.rowsNeeded;
-      r++
+      let boxIndex = 0;
+      boxIndex < maxIterations;
+      boxIndex++
     ) {
-      for (
-        let layer = 0;
-        layer < best.layers;
-        layer++
-      ) {
-        for (
-          let across = 0;
-          across < best.across;
-          across++
-        ) {
-          if (
-            placed >=
-            best.fit
-          ) {
-            break;
-          }
+      const candidate =
+        findBestMixedPlacement(
+          freeSpaces,
+          orientations,
+          item,
+          C
+        );
 
-          placements.push({
-            itemId:
-              item.Item_ID,
-            colour:
-              item.Colour,
-            x:
-              cursorX +
-              r * best.l,
-            y:
-              across *
-              best.w,
-            z:
-              layer *
-              best.h,
-            l:
-              best.l,
-            w:
-              best.w,
-            h:
-              best.h
-          });
-
-          placed++;
-        }
+      if (!candidate) {
+        break;
       }
+
+      const placement = {
+        itemId:
+          item.Item_ID,
+
+        colour:
+          item.Colour,
+
+        x:
+          candidate.space.x,
+
+        y:
+          candidate.space.y,
+
+        z:
+          candidate.space.z,
+
+        l:
+          candidate.orientation.l,
+
+        w:
+          candidate.orientation.w,
+
+        h:
+          candidate.orientation.h,
+
+        orientationKey:
+          candidate.orientation.key,
+
+        orientationType:
+          candidate.orientation.type
+      };
+
+      placements.push(
+        placement
+      );
+
+      fitted++;
+
+      const key =
+        candidate.orientation.key;
+
+      if (
+        !breakdownMap.has(
+          key
+        )
+      ) {
+        breakdownMap.set(
+          key,
+          {
+            key,
+            type:
+              candidate.orientation.type,
+
+            label:
+              orientationHumanLabel(
+                candidate.orientation,
+                item
+              ),
+
+            dimensions:
+              {
+                l:
+                  candidate.orientation.l,
+                w:
+                  candidate.orientation.w,
+                h:
+                  candidate.orientation.h
+              },
+
+            count:
+              0
+          }
+        );
+      }
+
+      breakdownMap
+        .get(key)
+        .count++;
+
+      freeSpaces =
+        splitFreeSpaceAfterPlacement(
+          freeSpaces,
+          candidate.spaceIndex,
+          candidate.orientation
+        );
+
+      freeSpaces =
+        pruneContainedSpaces(
+          freeSpaces
+        );
+
+      /*
+        Keep the free-space list ordered so the optimiser fills
+        nearer the loading end / floor first and produces a
+        practical, readable stuffing layout.
+      */
+      freeSpaces.sort(
+        freeSpacePrioritySort
+      );
     }
 
-    cursorX +=
-      best.usedLength;
+    const remaining =
+      Math.max(
+        0,
+        requested -
+        fitted
+      );
+
+    const breakdown =
+      [...breakdownMap.values()]
+        .sort(
+          (a, b) =>
+            b.count -
+            a.count
+        );
 
     results.push({
       item,
       requested,
-      fitted:
-        best.fit,
-      remaining:
-        Math.max(
-          0,
-          requested -
-          best.fit
-        ),
+      fitted,
+      remaining,
+      breakdown,
+      mixed:
+        breakdown.length > 1,
+
       orientation:
-        best
+        breakdown.length
+          ? {
+              ...breakdown[0].dimensions,
+              type:
+                breakdown[0].type,
+              label:
+                breakdown[0].label
+            }
+          : null
     });
   });
 
   return {
     placements,
     results,
-    usedLength:
-      cursorX
+    freeSpaces
   };
 }
 
 
-function allowedOrientations(item) {
+function findBestMixedPlacement(
+  freeSpaces,
+  orientations,
+  item,
+  container
+) {
+  let best = null;
+
+  for (
+    let spaceIndex = 0;
+    spaceIndex <
+    freeSpaces.length;
+    spaceIndex++
+  ) {
+    const space =
+      freeSpaces[
+        spaceIndex
+      ];
+
+    for (
+      let orientationIndex = 0;
+      orientationIndex <
+      orientations.length;
+      orientationIndex++
+    ) {
+      const orientation =
+        orientations[
+          orientationIndex
+        ];
+
+      if (
+        !orientationFitsSpace(
+          orientation,
+          space,
+          item,
+          container
+        )
+      ) {
+        continue;
+      }
+
+      const score =
+        mixedPlacementScore(
+          orientation,
+          space,
+          item,
+          container
+        );
+
+      if (
+        !best ||
+        compareMixedScores(
+          score,
+          best.score
+        ) <
+        0
+      ) {
+        best = {
+          spaceIndex,
+          space,
+          orientation,
+          score
+        };
+      }
+    }
+  }
+
+  return best;
+}
+
+
+function orientationFitsSpace(
+  orientation,
+  space,
+  item,
+  container
+) {
+  const EPS =
+    0.001;
+
+  if (
+    orientation.l <= 0 ||
+    orientation.w <= 0 ||
+    orientation.h <= 0
+  ) {
+    return false;
+  }
+
+  if (
+    orientation.l >
+      space.l + EPS ||
+    orientation.w >
+      space.w + EPS ||
+    orientation.h >
+      space.h + EPS
+  ) {
+    return false;
+  }
+
+  /*
+    Non-stackable cargo is restricted to the floor.
+  */
+  if (
+    !toBoolean(
+      item.Stackable
+    ) &&
+    space.z >
+      EPS
+  ) {
+    return false;
+  }
+
+  /*
+    Respect Max_Layers approximately even when mixed orientations
+    are enabled. A carton placed at z must not exceed the selected
+    orientation's permitted stack height.
+  */
+  const maxLayers =
+    Number(
+      item.Max_Layers ||
+      0
+    );
+
+  if (
+    maxLayers >
+    0
+  ) {
+    const maxStackHeight =
+      orientation.h *
+      maxLayers;
+
+    if (
+      space.z +
+      orientation.h >
+      maxStackHeight +
+      EPS
+    ) {
+      return false;
+    }
+  }
+
+  /*
+    Final guard against any floating-point overflow.
+  */
+  if (
+    space.x +
+    orientation.l >
+    container.L +
+    EPS
+  ) {
+    return false;
+  }
+
+  if (
+    space.y +
+    orientation.w >
+    container.W +
+    EPS
+  ) {
+    return false;
+  }
+
+  if (
+    space.z +
+    orientation.h >
+    container.H +
+    EPS
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+
+function mixedPlacementScore(
+  orientation,
+  space,
+  item,
+  container
+) {
+  /*
+    Lower score is better.
+
+    Priority:
+      1. Fill the container from the door/end inward.
+      2. Keep cartons on the floor before building higher.
+      3. Minimise wasted width / height around the carton.
+      4. Prefer orientations that can tile the selected free space
+         with more cartons.
+      5. Use less leftover volume in the chosen free-space block.
+
+    The score is lexicographic, not a single weighted number,
+    which makes the behaviour more stable and predictable.
+  */
+
+  const fitAlongLength =
+    Math.floor(
+      space.l /
+      orientation.l
+    );
+
+  const fitAcrossWidth =
+    Math.floor(
+      space.w /
+      orientation.w
+    );
+
+  let fitLayers =
+    Math.floor(
+      space.h /
+      orientation.h
+    );
+
+  if (
+    !toBoolean(
+      item.Stackable
+    )
+  ) {
+    fitLayers =
+      Math.min(
+        fitLayers,
+        1
+      );
+  }
+
+  const maxLayers =
+    Number(
+      item.Max_Layers ||
+      0
+    );
+
+  if (
+    maxLayers >
+    0
+  ) {
+    fitLayers =
+      Math.min(
+        fitLayers,
+        maxLayers
+      );
+  }
+
+  const localCapacity =
+    Math.max(
+      1,
+      fitAlongLength *
+      fitAcrossWidth *
+      fitLayers
+    );
+
+  const wastedWidth =
+    space.w -
+    orientation.w;
+
+  const wastedHeight =
+    space.h -
+    orientation.h;
+
+  const wastedLength =
+    space.l -
+    orientation.l;
+
+  const spaceVolume =
+    space.l *
+    space.w *
+    space.h;
+
+  const boxVolume =
+    orientation.l *
+    orientation.w *
+    orientation.h;
+
+  const leftoverVolume =
+    spaceVolume -
+    boxVolume;
+
+  return [
+    roundScore(
+      space.x
+    ),
+
+    roundScore(
+      space.z
+    ),
+
+    roundScore(
+      space.y
+    ),
+
+    roundScore(
+      wastedWidth
+    ),
+
+    roundScore(
+      wastedHeight
+    ),
+
+    -localCapacity,
+
+    roundScore(
+      wastedLength
+    ),
+
+    roundScore(
+      leftoverVolume
+    )
+  ];
+}
+
+
+function compareMixedScores(
+  a,
+  b
+) {
+  const length =
+    Math.max(
+      a.length,
+      b.length
+    );
+
+  for (
+    let i = 0;
+    i < length;
+    i++
+  ) {
+    const av =
+      a[i] ?? 0;
+
+    const bv =
+      b[i] ?? 0;
+
+    if (
+      av <
+      bv
+    ) {
+      return -1;
+    }
+
+    if (
+      av >
+      bv
+    ) {
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+
+function roundScore(
+  value
+) {
+  return Math.round(
+    Number(
+      value ||
+      0
+    ) *
+    1000
+  ) /
+  1000;
+}
+
+
+function splitFreeSpaceAfterPlacement(
+  freeSpaces,
+  usedIndex,
+  orientation
+) {
+  const used =
+    freeSpaces[
+      usedIndex
+    ];
+
+  const next =
+    freeSpaces.filter(
+      (
+        _,
+        index
+      ) =>
+        index !==
+        usedIndex
+    );
+
+  const remainingLength =
+    used.l -
+    orientation.l;
+
+  const remainingWidth =
+    used.w -
+    orientation.w;
+
+  const remainingHeight =
+    used.h -
+    orientation.h;
+
+  /*
+    Non-overlapping guillotine partition:
+
+    1. Length slab:
+       everything beyond the carton along container length.
+
+    2. Width slab:
+       remaining width beside the carton, but only inside the
+       length occupied by this carton.
+
+    3. Height slab:
+       remaining height above the carton, but only over the
+       carton footprint.
+
+    Together these exactly partition the used free-space block.
+  */
+
+  if (
+    remainingLength >
+    0.001
+  ) {
+    next.push({
+      x:
+        used.x +
+        orientation.l,
+
+      y:
+        used.y,
+
+      z:
+        used.z,
+
+      l:
+        remainingLength,
+
+      w:
+        used.w,
+
+      h:
+        used.h
+    });
+  }
+
+  if (
+    remainingWidth >
+    0.001
+  ) {
+    next.push({
+      x:
+        used.x,
+
+      y:
+        used.y +
+        orientation.w,
+
+      z:
+        used.z,
+
+      l:
+        orientation.l,
+
+      w:
+        remainingWidth,
+
+      h:
+        used.h
+    });
+  }
+
+  if (
+    remainingHeight >
+    0.001
+  ) {
+    next.push({
+      x:
+        used.x,
+
+      y:
+        used.y,
+
+      z:
+        used.z +
+        orientation.h,
+
+      l:
+        orientation.l,
+
+      w:
+        orientation.w,
+
+      h:
+        remainingHeight
+    });
+  }
+
+  return next;
+}
+
+
+function pruneContainedSpaces(
+  spaces
+) {
+  const filtered =
+    spaces.filter(
+      space =>
+        space.l >
+          0.001 &&
+        space.w >
+          0.001 &&
+        space.h >
+          0.001
+    );
+
+  return filtered.filter(
+    (
+      space,
+      index
+    ) => {
+      for (
+        let otherIndex = 0;
+        otherIndex <
+        filtered.length;
+        otherIndex++
+      ) {
+        if (
+          otherIndex ===
+          index
+        ) {
+          continue;
+        }
+
+        const other =
+          filtered[
+            otherIndex
+          ];
+
+        if (
+          spaceContainedIn(
+            space,
+            other
+          )
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    }
+  );
+}
+
+
+function spaceContainedIn(
+  inner,
+  outer
+) {
+  const EPS =
+    0.001;
+
+  return (
+    inner.x >=
+      outer.x -
+      EPS &&
+    inner.y >=
+      outer.y -
+      EPS &&
+    inner.z >=
+      outer.z -
+      EPS &&
+
+    inner.x +
+      inner.l <=
+      outer.x +
+      outer.l +
+      EPS &&
+
+    inner.y +
+      inner.w <=
+      outer.y +
+      outer.w +
+      EPS &&
+
+    inner.z +
+      inner.h <=
+      outer.z +
+      outer.h +
+      EPS
+  );
+}
+
+
+function freeSpacePrioritySort(
+  a,
+  b
+) {
+  /*
+    Practical loading priority:
+      x = along container length
+      z = height
+      y = width
+  */
+
+  return (
+    a.x -
+    b.x ||
+    a.z -
+    b.z ||
+    a.y -
+    b.y ||
+
+    /*
+      For otherwise-equal spaces, use the larger one first.
+    */
+    (
+      b.l *
+      b.w *
+      b.h
+    ) -
+    (
+      a.l *
+      a.w *
+      a.h
+    )
+  );
+}
+
+
+function allowedOrientations(
+  item
+) {
   const L =
     Number(
       item.Length_mm
@@ -2479,24 +3214,33 @@ function allowedOrientations(item) {
       item.Turn_Sideways
     );
 
-  let values = [];
+  let rawValues = [];
 
   /*
-    The two existing backend flags now represent four
-    useful user-selectable orientation modes.
+    Existing backend flags continue to encode four useful modes:
 
-    00 = Default only
-    10 = Floor Rotate only
-    01 = Sideways only (best of 4 sideways permutations)
-    11 = Auto Best Fit (all 6 permutations)
+      00 = Default only
+      10 = Floor Rotate only
+      01 = Sideways family only
+      11 = Auto Best Fit / MIXED orientation mode
+
+    The important change is that when more than one orientation is
+    available, the optimiser may use a DIFFERENT orientation for
+    each individual carton.
   */
 
   if (
     !floorRotate &&
     !sideways
   ) {
-    values = [
-      [L, W, H]
+    rawValues = [
+      {
+        l: L,
+        w: W,
+        h: H,
+        type:
+          'default'
+      }
     ];
   }
 
@@ -2504,8 +3248,14 @@ function allowedOrientations(item) {
     floorRotate &&
     !sideways
   ) {
-    values = [
-      [W, L, H]
+    rawValues = [
+      {
+        l: W,
+        w: L,
+        h: H,
+        type:
+          'floor'
+      }
     ];
   }
 
@@ -2513,11 +3263,38 @@ function allowedOrientations(item) {
     !floorRotate &&
     sideways
   ) {
-    values = [
-      [L, H, W],
-      [H, L, W],
-      [W, H, L],
-      [H, W, L]
+    rawValues = [
+      {
+        l: L,
+        w: H,
+        h: W,
+        type:
+          'side'
+      },
+
+      {
+        l: H,
+        w: L,
+        h: W,
+        type:
+          'side'
+      },
+
+      {
+        l: W,
+        w: H,
+        h: L,
+        type:
+          'side'
+      },
+
+      {
+        l: H,
+        w: W,
+        h: L,
+        type:
+          'side'
+      }
     ];
   }
 
@@ -2525,29 +3302,78 @@ function allowedOrientations(item) {
     floorRotate &&
     sideways
   ) {
-    values = [
-      [L, W, H],
-      [W, L, H],
-      [L, H, W],
-      [H, L, W],
-      [W, H, L],
-      [H, W, L]
+    rawValues = [
+      {
+        l: L,
+        w: W,
+        h: H,
+        type:
+          'default'
+      },
+
+      {
+        l: W,
+        w: L,
+        h: H,
+        type:
+          'floor'
+      },
+
+      {
+        l: L,
+        w: H,
+        h: W,
+        type:
+          'side'
+      },
+
+      {
+        l: H,
+        w: L,
+        h: W,
+        type:
+          'side'
+      },
+
+      {
+        l: W,
+        w: H,
+        h: L,
+        type:
+          'side'
+      },
+
+      {
+        l: H,
+        w: W,
+        h: L,
+        type:
+          'side'
+      }
     ];
   }
 
   const unique =
     new Map();
 
-  values.forEach(
-    ([l, w, h]) => {
-      unique.set(
-        `${l}-${w}-${h}`,
-        {
-          l,
-          w,
-          h
-        }
-      );
+  rawValues.forEach(
+    orientation => {
+      const key =
+        `${orientation.l}-${orientation.w}-${orientation.h}`;
+
+      if (
+        !unique.has(
+          key
+        )
+      ) {
+        unique.set(
+          key,
+          {
+            ...orientation,
+            key
+          }
+        );
+      }
     }
   );
 
@@ -2593,6 +3419,39 @@ function getOrientationMode(
 }
 
 
+function orientationHumanLabel(
+  orientation,
+  item
+) {
+  const typeLabel = {
+    default:
+      'Default',
+
+    floor:
+      'Floor Rotate',
+
+    side:
+      'Sideways'
+  }[
+    orientation.type
+  ] ||
+  'Orientation';
+
+  return (
+    `${typeLabel} · ` +
+    `${formatDimension(
+      orientation.l
+    )} × ` +
+    `${formatDimension(
+      orientation.w
+    )} × ` +
+    `${formatDimension(
+      orientation.h
+    )} ${dimensionLabel()}`
+  );
+}
+
+
 function orientationLabel(
   orientation
 ) {
@@ -2603,6 +3462,12 @@ function orientationLabel(
     !orientation.h
   ) {
     return '—';
+  }
+
+  if (
+    orientation.label
+  ) {
+    return orientation.label;
   }
 
   return (
@@ -2616,6 +3481,27 @@ function orientationLabel(
       orientation.h
     )} ${dimensionLabel()}`
   );
+}
+
+
+function formatOrientationBreakdown(
+  breakdown
+) {
+  if (
+    !Array.isArray(
+      breakdown
+    ) ||
+    !breakdown.length
+  ) {
+    return '—';
+  }
+
+  return breakdown
+    .map(
+      entry =>
+        `${entry.count} ${entry.label}`
+    )
+    .join(' · ');
 }
 
 
@@ -2657,8 +3543,28 @@ function renderFitResults(result) {
           ) /
           1000000000;
 
+        const breakdownHtml =
+          row.breakdown?.length
+            ? row.breakdown
+                .map(
+                  entry => `
+                    <span class="breakdown-chip">
+                      <strong>${formatNumber(entry.count)}</strong>
+                      ${escapeHtml(
+                        entry.type === 'default'
+                          ? 'Default'
+                          : entry.type === 'floor'
+                            ? 'Floor'
+                            : 'Side'
+                      )}
+                    </span>
+                  `
+                )
+                .join('')
+            : '—';
+
         return `
-        <div class="fit-row">
+        <div class="fit-row mixed-fit-row">
 
           <div class="fit-name">
             <span
@@ -2671,9 +3577,17 @@ function renderFitResults(result) {
               "
             ></span>
 
-            ${escapeHtml(
-              row.item.Product_Name
-            )}
+            <div>
+              <strong>
+                ${escapeHtml(
+                  row.item.Product_Name
+                )}
+              </strong>
+
+              <div class="breakdown-chips">
+                ${breakdownHtml}
+              </div>
+            </div>
           </div>
 
           <div class="fit-number">
