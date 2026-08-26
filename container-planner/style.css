@@ -1967,3 +1967,58 @@ body.is-busy {
     grid-column: 3;
   }
 }
+
+
+/* CORRECTED CAPACITY + COLOUR CLARITY */
+
+.capacity-guard-note {
+  margin-bottom: 10px;
+  padding: 8px 11px;
+
+  border: 1px solid #efcf92;
+  border-radius: 8px;
+
+  background: #fff8e9;
+  color: #725217;
+
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.capacity-guard-note strong {
+  color: #4f3910;
+}
+
+.capacity-guard-note span {
+  display: block;
+  margin-top: 2px;
+}
+
+.capacity-guard-note.capacity-guard-ok {
+  border-color: #bfe1cd;
+  background: #f0faf4;
+  color: #266446;
+}
+
+.capacity-stop-reason {
+  margin-top: 6px;
+  padding: 5px 7px;
+
+  border-radius: 5px;
+
+  background: #fff3e5;
+  color: #9a5b09;
+
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.colour-dot,
+.legend-colour {
+  box-shadow:
+    0 0 0 1px rgba(22, 32, 51, .18);
+}
+
+.legend-item {
+  font-weight: 750;
+}

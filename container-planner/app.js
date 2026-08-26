@@ -19,11 +19,17 @@ const COLOURS = [
   '#2DA66C',
   '#8B65D5',
   '#D95D78',
-  '#29A8B8',
-  '#D5A62E',
-  '#64748B',
+  '#16A3A8',
+  '#D6A11D',
+  '#6B7280',
   '#C153A3',
-  '#5E9B55'
+  '#7BAE3A',
+  '#E0523A',
+  '#0E7C86',
+  '#9B6A2F',
+  '#B85C9E',
+  '#355C9A',
+  '#8A9A35'
 ];
 
 
@@ -1649,20 +1655,22 @@ async function reloadPlan() {
 
 function refreshEverything() {
   ensureStrategySequence();
+  assignUniqueDisplayColours();
   renderStrategyControls();
   renderCustomSequence();
 
-  const totals =
-    calculateTotals();
-
+  /*
+    First calculate one shared physical packing result.
+    Dashboard totals are derived only from cartons actually placed.
+  */
   packingResult =
     calculatePacking();
 
-  /*
-    Cargo cards are rendered after packing is calculated,
-    so each card can show the LIVE fit and the orientation
-    currently being used by the stuffing engine.
-  */
+  const totals =
+    calculateTotals(
+      packingResult
+    );
+
   renderCargoList();
 
   renderFitResults(
@@ -1682,8 +1690,12 @@ function refreshEverything() {
   render3D(
     packingResult
   );
-}
 
+  renderCapacityGuard(
+    packingResult,
+    totals
+  );
+}
 
 
 function orientationIcon(type) {
@@ -1846,7 +1858,9 @@ function renderCargoList() {
           style="
             background:
             ${escapeHtml(
-              item.Colour
+              displayColour(
+                item
+              )
             )}
           "
         ></span>
@@ -1960,6 +1974,12 @@ function renderCargoList() {
           </strong>
         </div>
       </div>
+
+      ${
+        remaining > 0
+          ? `<div class="capacity-stop-reason">${fitRow?.stopReason === 'payload' ? 'Stopped by container payload limit' : 'Stopped because no valid shared 3D space remains'}</div>`
+          : ''
+      }
 
       <div class="orientation-label">
         Rotate box — 3D preview updates instantly
@@ -2140,41 +2160,69 @@ function renderCargoList() {
    TOTALS
 ========================================================= */
 
-function calculateTotals() {
+function calculateTotals(
+  result
+) {
+  const placements =
+    result?.placements ||
+    [];
+
+  const loadedByItem =
+    new Map();
+
+  placements.forEach(
+    placement => {
+      loadedByItem.set(
+        placement.itemId,
+        (
+          loadedByItem.get(
+            placement.itemId
+          ) ||
+          0
+        ) +
+        1
+      );
+    }
+  );
+
   let packages = 0;
   let weightKG = 0;
   let cbm = 0;
 
-  items.forEach(item => {
-    const qty =
-      Number(
-        item.Quantity || 0
-      );
+  items.forEach(
+    item => {
+      const loadedQty =
+        loadedByItem.get(
+          item.Item_ID
+        ) ||
+        0;
 
-    packages += qty;
+      packages +=
+        loadedQty;
 
-    weightKG +=
-      Number(
-        item.Gross_Weight_Kg ||
-        0
-      ) *
-      qty;
+      weightKG +=
+        Number(
+          item.Gross_Weight_Kg ||
+          0
+        ) *
+        loadedQty;
 
-    cbm +=
-      (
-        Number(
-          item.Length_mm
-        ) *
-        Number(
-          item.Width_mm
-        ) *
-        Number(
-          item.Height_mm
-        ) *
-        qty
-      ) /
-      1000000000;
-  });
+      cbm +=
+        (
+          Number(
+            item.Length_mm
+          ) *
+          Number(
+            item.Width_mm
+          ) *
+          Number(
+            item.Height_mm
+          ) *
+          loadedQty
+        ) /
+        1000000000;
+    }
+  );
 
   const container =
     selectedContainer();
@@ -2182,6 +2230,12 @@ function calculateTotals() {
   let containerCBM = 0;
   let volumePct = 0;
   let payloadPct = 0;
+
+  const maxPayloadKG =
+    Number(
+      container?.Max_Payload_Kg ||
+      0
+    );
 
   if (container) {
     containerCBM =
@@ -2206,13 +2260,9 @@ function calculateTotals() {
         : 0;
 
     payloadPct =
-      Number(
-        container.Max_Payload_Kg
-      )
+      maxPayloadKG
         ? weightKG /
-          Number(
-            container.Max_Payload_Kg
-          ) *
+          maxPayloadKG *
           100
         : 0;
   }
@@ -2220,7 +2270,9 @@ function calculateTotals() {
   document
     .getElementById('totalPackages')
     .textContent =
-      formatNumber(packages);
+      formatNumber(
+        packages
+      );
 
   document
     .getElementById('totalWeight')
@@ -2244,7 +2296,10 @@ function calculateTotals() {
     .getElementById('volumeUsed')
     .textContent =
       `${formatDecimal(
-        volumePct,
+        Math.min(
+          100,
+          volumePct
+        ),
         1
       )}%`;
 
@@ -2252,7 +2307,10 @@ function calculateTotals() {
     .getElementById('payloadUsed')
     .textContent =
       `${formatDecimal(
-        payloadPct,
+        Math.min(
+          100,
+          payloadPct
+        ),
         1
       )}%`;
 
@@ -2260,8 +2318,14 @@ function calculateTotals() {
     packages,
     weightKG,
     cbm,
-    volumePct,
-    payloadPct
+    Math.min(
+      100,
+      volumePct
+    ),
+    Math.min(
+      100,
+      payloadPct
+    )
   );
 
   return {
@@ -2269,13 +2333,17 @@ function calculateTotals() {
     weightKG,
     cbm,
     containerCBM,
-    volumePct,
-    payloadPct,
-    maxPayloadKG:
-      Number(
-        container?.Max_Payload_Kg ||
-        0
-      )
+    volumePct:
+      Math.min(
+        100,
+        volumePct
+      ),
+    payloadPct:
+      Math.min(
+        100,
+        payloadPct
+      ),
+    maxPayloadKG
   };
 }
 
@@ -2397,6 +2465,16 @@ function calculatePacking() {
   const placements = [];
   const results = [];
 
+  const maxPayloadKG =
+    Number(
+      selectedContainer()
+        ?.Max_Payload_Kg ||
+      0
+    );
+
+  let loadedPayloadKG =
+    0;
+
   const sortedItems =
     getStrategySortedItems();
 
@@ -2412,6 +2490,18 @@ function calculatePacking() {
       );
 
     let fitted = 0;
+
+    const packageWeightKG =
+      Math.max(
+        0,
+        Number(
+          item.Gross_Weight_Kg ||
+          0
+        )
+      );
+
+    let stopReason =
+      '';
 
     const breakdownMap =
       new Map();
@@ -2431,6 +2521,20 @@ function calculatePacking() {
       boxIndex < maxIterations;
       boxIndex++
     ) {
+      if (
+        maxPayloadKG >
+        0 &&
+        loadedPayloadKG +
+        packageWeightKG >
+        maxPayloadKG +
+        0.0001
+      ) {
+        stopReason =
+          'payload';
+
+        break;
+      }
+
       const candidate =
         findBestMixedPlacement(
           freeSpaces,
@@ -2440,6 +2544,9 @@ function calculatePacking() {
         );
 
       if (!candidate) {
+        stopReason =
+          'space';
+
         break;
       }
 
@@ -2448,7 +2555,9 @@ function calculatePacking() {
           item.Item_ID,
 
         colour:
-          item.Colour,
+          displayColour(
+            item
+          ),
 
         x:
           candidate.space.x,
@@ -2480,6 +2589,9 @@ function calculatePacking() {
       );
 
       fitted++;
+
+      loadedPayloadKG +=
+        packageWeightKG;
 
       const key =
         candidate.orientation.key;
@@ -2568,6 +2680,14 @@ function calculatePacking() {
       mixed:
         breakdown.length > 1,
 
+      stopReason,
+
+      loadedWeightKG:
+        fitted *
+        packageWeightKG,
+
+      packageWeightKG,
+
       orientation:
         breakdown.length
           ? {
@@ -2584,7 +2704,9 @@ function calculatePacking() {
   return {
     placements,
     results,
-    freeSpaces
+    freeSpaces,
+    loadedPayloadKG,
+    maxPayloadKG
   };
 }
 
@@ -4410,7 +4532,9 @@ function renderFitResults(result) {
               style="
                 background:
                 ${escapeHtml(
-                  row.item.Colour
+                  displayColour(
+                    row.item
+                  )
                 )}
               "
             ></span>
@@ -4459,8 +4583,8 @@ function renderFitResults(result) {
           <div class="fit-status">
             ${
               row.remaining > 0
-                ? `<span class="status-warning">${formatNumber(row.remaining)} left</span>`
-                : `<span class="status-ok">OK</span>`
+                ? `<span class="status-warning">${formatNumber(row.remaining)} left · ${row.stopReason === 'payload' ? 'Payload limit' : 'Space limit'}</span>`
+                : `<span class="status-ok">ALL LOADED</span>`
             }
           </div>
 
@@ -4653,6 +4777,102 @@ function renderUtilisation(totals) {
         ),
         0
       )} ${weightLabel()} payload remaining`;
+}
+
+
+function renderCapacityGuard(
+  result,
+  totals
+) {
+  const note =
+    document.getElementById(
+      'capacityGuardNote'
+    );
+
+  if (!note) {
+    return;
+  }
+
+  const requested =
+    result.results.reduce(
+      (
+        sum,
+        row
+      ) =>
+        sum +
+        Number(
+          row.requested ||
+          0
+        ),
+      0
+    );
+
+  const loaded =
+    result.results.reduce(
+      (
+        sum,
+        row
+      ) =>
+        sum +
+        Number(
+          row.fitted ||
+          0
+        ),
+      0
+    );
+
+  const remaining =
+    Math.max(
+      0,
+      requested -
+      loaded
+    );
+
+  const payloadStop =
+    result.results.some(
+      row =>
+        row.stopReason ===
+        'payload' &&
+        row.remaining >
+        0
+    );
+
+  const spaceStop =
+    result.results.some(
+      row =>
+        row.stopReason ===
+        'space' &&
+        row.remaining >
+        0
+    );
+
+  note.classList.toggle(
+    'capacity-guard-ok',
+    remaining === 0
+  );
+
+  note.innerHTML =
+    `
+      <strong>Capacity Guard:</strong>
+      ${formatNumber(
+        loaded
+      )} of ${formatNumber(
+        requested
+      )} packages loaded.
+      ${remaining
+        ? `${formatNumber(remaining)} remain outside the container.`
+        : 'All requested packages fit.'}
+      <span>
+        Volume ${formatDecimal(
+          totals.volumePct,
+          1
+        )}% ·
+        Payload ${formatDecimal(
+          totals.payloadPct,
+          1
+        )}%${payloadStop ? ' · Payload limit reached' : ''}${spaceStop ? ' · Space limit reached' : ''}
+      </span>
+    `;
 }
 
 
@@ -5950,18 +6170,82 @@ function selectedContainer() {
 }
 
 
-function chooseColour() {
+function assignUniqueDisplayColours() {
   const used =
-    items.map(
-      item =>
-        item.Colour
+    new Set();
+
+  items.forEach(
+    (
+      item,
+      index
+    ) => {
+      let preferred =
+        String(
+          item.Colour ||
+          ''
+        ).trim();
+
+      if (
+        !preferred ||
+        used.has(
+          preferred.toUpperCase()
+        )
+      ) {
+        preferred =
+          COLOURS.find(
+            colour =>
+              !used.has(
+                colour.toUpperCase()
+              )
+          ) ||
+          COLOURS[
+            index %
+            COLOURS.length
+          ];
+      }
+
+      item._DisplayColour =
+        preferred;
+
+      used.add(
+        preferred.toUpperCase()
+      );
+    }
+  );
+}
+
+
+function displayColour(
+  item
+) {
+  return (
+    item?._DisplayColour ||
+    item?.Colour ||
+    '#64748B'
+  );
+}
+
+
+function chooseColour() {
+  assignUniqueDisplayColours();
+
+  const used =
+    new Set(
+      items.map(
+        item =>
+          String(
+            displayColour(
+              item
+            )
+          ).toUpperCase()
+      )
     );
 
   return (
     COLOURS.find(
       colour =>
-        !used.includes(
-          colour
+        !used.has(
+          colour.toUpperCase()
         )
     ) ||
     COLOURS[
