@@ -18,6 +18,7 @@
       <div>
         <p class="eyebrow">FOREGO EXPORTS</p>
         <h1>Container Stuffing Planner</h1>
+
         <p class="header-subtitle">
           Plan, visualise and document container loading.
         </p>
@@ -34,7 +35,9 @@
     </header>
 
 
-    <!-- DASHBOARD -->
+    <!-- =========================
+         DASHBOARD
+    ========================== -->
 
     <section id="dashboardView">
 
@@ -44,13 +47,18 @@
 
           <div class="card-header">
             <h2>Saved Plans</h2>
+
             <p>
               Continue an existing container stuffing plan.
             </p>
           </div>
 
           <div id="plansList">
-            <p class="muted">Loading plans...</p>
+
+            <p class="muted">
+              Loading plans...
+            </p>
+
           </div>
 
         </section>
@@ -60,13 +68,18 @@
 
           <div class="card-header">
             <h2>Container Presets</h2>
+
             <p>
               Available container specifications.
             </p>
           </div>
 
           <div id="containersList">
-            <p class="muted">Loading containers...</p>
+
+            <p class="muted">
+              Loading containers...
+            </p>
+
           </div>
 
         </section>
@@ -76,7 +89,9 @@
     </section>
 
 
-    <!-- PLAN VIEW -->
+    <!-- =========================
+         PLAN VIEW
+    ========================== -->
 
     <section
       id="planView"
@@ -128,10 +143,15 @@
         <section class="card">
 
           <div class="card-header">
-            <h2>Shipment Details</h2>
+
+            <h2>
+              Shipment Details
+            </h2>
+
             <p>
               Basic information for this container.
             </p>
+
           </div>
 
 
@@ -180,6 +200,61 @@
                 id="editContainer"
                 name="Container_Type"
               ></select>
+
+            </div>
+
+
+            <div class="field">
+
+              <label for="editDimensionUnit">
+                Dimension Unit
+              </label>
+
+              <select
+                id="editDimensionUnit"
+                name="Dimension_Unit"
+              >
+                <option value="mm">
+                  Millimetres (mm)
+                </option>
+
+                <option value="cm">
+                  Centimetres (cm)
+                </option>
+
+                <option value="in">
+                  Inches (in)
+                </option>
+
+                <option value="ft">
+                  Feet (ft)
+                </option>
+
+              </select>
+
+            </div>
+
+
+            <div class="field">
+
+              <label for="editWeightUnit">
+                Weight Unit
+              </label>
+
+              <select
+                id="editWeightUnit"
+                name="Weight_Unit"
+              >
+
+                <option value="kg">
+                  Kilograms (kg)
+                </option>
+
+                <option value="lb">
+                  Pounds (lb)
+                </option>
+
+              </select>
 
             </div>
 
@@ -269,10 +344,15 @@
         <aside class="card">
 
           <div class="card-header">
-            <h2>Container</h2>
+
+            <h2>
+              Container
+            </h2>
+
             <p>
               Selected container specification.
             </p>
+
           </div>
 
           <div
@@ -285,13 +365,16 @@
       </div>
 
 
-      <!-- CARGO SUMMARY -->
+      <!-- =========================
+           CARGO
+      ========================== -->
 
       <section class="cargo-section">
 
         <div class="cargo-section-header">
 
           <div>
+
             <p class="eyebrow">
               CARGO
             </p>
@@ -301,9 +384,10 @@
             </h2>
 
             <p class="muted">
-              Add every carton, crate, bag or pallet
+              Add every carton, crate, bag, sack or pallet
               planned for this container.
             </p>
+
           </div>
 
           <button
@@ -428,10 +512,9 @@
             </h3>
 
             <p>
-              Once the cargo data is complete, the
-              stuffing engine will calculate physical
-              placement, allowed orientations, layers,
-              weight limits and remaining capacity.
+              The stuffing engine will calculate physical
+              placement, permitted orientations, layers,
+              payload and remaining container space.
             </p>
 
           </div>
@@ -453,8 +536,9 @@
   </main>
 
 
-
-  <!-- NEW PLAN MODAL -->
+  <!-- =========================
+       NEW PLAN MODAL
+  ========================== -->
 
   <div
     id="newPlanModal"
@@ -466,6 +550,7 @@
       <div class="modal-header">
 
         <div>
+
           <p class="eyebrow">
             FOREGO EXPORTS
           </p>
@@ -477,12 +562,14 @@
           <p>
             Create the container plan first.
           </p>
+
         </div>
 
         <button
           id="closeModalBtn"
           class="icon-btn"
           type="button"
+          aria-label="Close"
         >
           ×
         </button>
@@ -497,7 +584,7 @@
 
         <div class="field full">
 
-          <label>
+          <label for="buyerName">
             Buyer Name
           </label>
 
@@ -505,6 +592,7 @@
             id="buyerName"
             name="Buyer_Name"
             required
+            placeholder="Buyer / company name"
           >
 
         </div>
@@ -534,6 +622,66 @@
             name="Container_Type"
             required
           ></select>
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Dimension Unit
+          </label>
+
+          <select
+            name="Dimension_Unit"
+          >
+
+            <option
+              value="mm"
+              selected
+            >
+              Millimetres (mm)
+            </option>
+
+            <option value="cm">
+              Centimetres (cm)
+            </option>
+
+            <option value="in">
+              Inches (in)
+            </option>
+
+            <option value="ft">
+              Feet (ft)
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div class="field">
+
+          <label>
+            Weight Unit
+          </label>
+
+          <select
+            name="Weight_Unit"
+          >
+
+            <option
+              value="kg"
+              selected
+            >
+              Kilograms (kg)
+            </option>
+
+            <option value="lb">
+              Pounds (lb)
+            </option>
+
+          </select>
 
         </div>
 
@@ -632,8 +780,9 @@
   </div>
 
 
-
-  <!-- CARGO MODAL -->
+  <!-- =========================
+       CARGO MODAL
+  ========================== -->
 
   <div
     id="cargoModal"
@@ -655,8 +804,8 @@
           </h2>
 
           <p>
-            Enter the finished outer dimensions of
-            the package wherever possible.
+            Enter finished outer package dimensions
+            wherever possible.
           </p>
 
         </div>
@@ -665,6 +814,7 @@
           id="closeCargoBtn"
           class="icon-btn"
           type="button"
+          aria-label="Close"
         >
           ×
         </button>
@@ -691,7 +841,6 @@
 
           <input
             id="cargoProduct"
-            name="Product_Name"
             required
             placeholder="e.g. Ponni Rice 5kg"
           >
@@ -707,13 +856,28 @@
 
           <select
             id="cargoPackingType"
-            name="Packing_Type"
           >
-            <option>Carton</option>
-            <option>Crate</option>
-            <option>Bag</option>
-            <option>Sack</option>
-            <option>Pallet</option>
+
+            <option>
+              Carton
+            </option>
+
+            <option>
+              Crate
+            </option>
+
+            <option>
+              Bag
+            </option>
+
+            <option>
+              Sack
+            </option>
+
+            <option>
+              Pallet
+            </option>
+
           </select>
 
         </div>
@@ -727,7 +891,6 @@
 
           <input
             id="cargoQuantity"
-            name="Quantity"
             type="number"
             min="1"
             step="1"
@@ -739,15 +902,15 @@
 
         <div class="field">
 
-          <label>
+          <label id="cargoLengthLabel">
             Length (mm)
           </label>
 
           <input
             id="cargoLength"
-            name="Length_mm"
             type="number"
-            min="1"
+            min="0"
+            step="any"
             required
           >
 
@@ -756,15 +919,15 @@
 
         <div class="field">
 
-          <label>
+          <label id="cargoWidthLabel">
             Width (mm)
           </label>
 
           <input
             id="cargoWidth"
-            name="Width_mm"
             type="number"
-            min="1"
+            min="0"
+            step="any"
             required
           >
 
@@ -773,15 +936,15 @@
 
         <div class="field">
 
-          <label>
+          <label id="cargoHeightLabel">
             Height (mm)
           </label>
 
           <input
             id="cargoHeight"
-            name="Height_mm"
             type="number"
-            min="1"
+            min="0"
+            step="any"
             required
           >
 
@@ -790,15 +953,15 @@
 
         <div class="field">
 
-          <label>
+          <label id="cargoThicknessLabel">
             Box Thickness (mm)
           </label>
 
           <input
             id="cargoThickness"
-            name="Box_Thickness_mm"
             type="number"
             min="0"
+            step="any"
             value="0"
           >
 
@@ -807,16 +970,15 @@
 
         <div class="field">
 
-          <label>
+          <label id="cargoWeightLabel">
             Gross Weight / Package (kg)
           </label>
 
           <input
             id="cargoWeight"
-            name="Gross_Weight_Kg"
             type="number"
             min="0"
-            step="0.01"
+            step="any"
             required
           >
 
@@ -831,7 +993,6 @@
 
           <input
             id="cargoMaxLayers"
-            name="Max_Layers"
             type="number"
             min="0"
             value="0"
@@ -857,7 +1018,6 @@
               <input
                 id="cargoRotate"
                 type="checkbox"
-                name="Rotate_Horizontal"
                 checked
               >
 
@@ -873,7 +1033,6 @@
               <input
                 id="cargoSideways"
                 type="checkbox"
-                name="Turn_Sideways"
               >
 
               <span>
@@ -888,7 +1047,6 @@
               <input
                 id="cargoUpside"
                 type="checkbox"
-                name="Turn_Upside_Down"
               >
 
               <span>
@@ -903,7 +1061,6 @@
               <input
                 id="cargoStackable"
                 type="checkbox"
-                name="Stackable"
                 checked
               >
 
