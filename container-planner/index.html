@@ -274,6 +274,18 @@
               </div>
 
               <div class="viewer-actions">
+                <button id="shellModeBtn" class="viewer-btn active-tool" type="button" title="Switch between cutaway and fuller container shell">
+                  Cutaway
+                </button>
+
+                <button id="dimensionToggleBtn" class="viewer-btn active-tool" type="button" title="Show or hide 3D dimensions">
+                  Dimensions
+                </button>
+
+                <button id="occupancyToggleBtn" class="viewer-btn active-tool" type="button" title="Show or hide product occupancy markers">
+                  Occupancy
+                </button>
+
                 <button id="rotateViewBtn" class="viewer-btn" type="button">
                   Auto Rotate
                 </button>
@@ -301,6 +313,12 @@
 
                 <div id="dimWidth" class="dimension-badge dimension-width">
                   Inner Width: —
+                </div>
+
+                <div class="viewer-orientation-key">
+                  <span>BACK</span>
+                  <span class="orientation-line"></span>
+                  <span>DOORS</span>
                 </div>
 
                 <div class="viewer-help">
@@ -348,6 +366,11 @@
                 <div class="spec-card">
                   <div class="spec-title">Cargo Legend</div>
                   <div id="legend" class="legend"></div>
+                </div>
+
+                <div class="spec-card">
+                  <div class="spec-title">Length Occupied</div>
+                  <div id="occupancyList" class="occupancy-list"></div>
                 </div>
               </aside>
             </div>

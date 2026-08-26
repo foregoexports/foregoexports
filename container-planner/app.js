@@ -92,6 +92,12 @@ let cargoGroup;
 let autoRotate = false;
 let currentView = '3d';
 
+let containerVisualMode = 'cutaway';
+let showSceneDimensions = true;
+let showOccupancyMarkers = true;
+let highlightedItemId = '';
+
+
 let productPlacementRules = {};
 
 
@@ -1458,6 +1464,136 @@ function showOrientationFeedback(
 }
 
 
+async function setProductColour(
+  itemId,
+  colour
+) {
+  const item =
+    items.find(
+      cargo =>
+        cargo.Item_ID ===
+        itemId
+    );
+
+  if (!item) {
+    return;
+  }
+
+  const chosen =
+    String(
+      colour ||
+      ''
+    ).toUpperCase();
+
+  const collision =
+    items.find(
+      cargo =>
+        cargo.Item_ID !==
+          itemId &&
+        String(
+          displayColour(
+            cargo
+          )
+        ).toUpperCase() ===
+          chosen
+    );
+
+  if (collision) {
+    showToast(
+      `That colour is already used by ${collision.Product_Name}. Choose a different colour.`,
+      'warning',
+      3500
+    );
+
+    renderCargoList();
+    return;
+  }
+
+  const previous =
+    item.Colour;
+
+  item.Colour =
+    colour;
+
+  item._DisplayColour =
+    colour;
+
+  refreshEverything();
+
+  setAutosaveState(
+    'saving'
+  );
+
+  try {
+    const result =
+      await apiPost({
+        action:
+          'updateItem',
+
+        sessionToken,
+
+        Item_ID:
+          itemId,
+
+        Colour:
+          colour
+      });
+
+    if (!result.ok) {
+      throw new Error(
+        result.message ||
+        'Unable to save colour.'
+      );
+    }
+
+    setAutosaveState(
+      'saved'
+    );
+
+    showToast(
+      'Product colour updated.'
+    );
+
+  } catch (error) {
+    item.Colour =
+      previous;
+
+    delete item._DisplayColour;
+
+    refreshEverything();
+
+    setAutosaveState(
+      'error'
+    );
+
+    showToast(
+      error.message ||
+      'Unable to save colour.',
+      'error'
+    );
+  }
+}
+
+
+function toggleProductFocus(
+  itemId
+) {
+  highlightedItemId =
+    highlightedItemId ===
+      itemId
+      ? ''
+      : itemId;
+
+  renderCargoList();
+
+  renderLegend();
+
+  render3D(
+    packingResult
+  );
+}
+
+
 /* =========================================================
    EDIT / DELETE
 ========================================================= */
@@ -1683,6 +1819,10 @@ function refreshEverything() {
 
   renderLegend();
 
+  renderOccupancyList(
+    packingResult
+  );
+
   renderContainerDimensions(
     totals
   );
@@ -1882,6 +2022,23 @@ function renderCargoList() {
         }
 
         <div class="cargo-spacer"></div>
+
+        <label class="colour-picker-wrap" title="Choose product colour">
+          <input
+            class="product-colour-input"
+            type="color"
+            value="${escapeHtml(displayColour(item))}"
+            aria-label="Choose colour for ${escapeHtml(item.Product_Name)}"
+          >
+        </label>
+
+        <button
+          class="small-btn focus-product ${highlightedItemId === item.Item_ID ? 'active' : ''}"
+          type="button"
+          title="Highlight this product in 3D"
+        >
+          ${highlightedItemId === item.Item_ID ? 'Show All' : 'Focus'}
+        </button>
 
         <button
           class="small-btn edit"
@@ -2179,6 +2336,31 @@ function renderCargoList() {
         </div>
       </div>
       `;
+
+    card
+      .querySelector(
+        '.product-colour-input'
+      )
+      .addEventListener(
+        'change',
+        event =>
+          setProductColour(
+            item.Item_ID,
+            event.target.value
+          )
+      );
+
+    card
+      .querySelector(
+        '.focus-product'
+      )
+      .addEventListener(
+        'click',
+        () =>
+          toggleProductFocus(
+            item.Item_ID
+          )
+      );
 
     card
       .querySelector('.edit')
@@ -6076,7 +6258,9 @@ function initThree() {
 }
 
 
-function render3D(result) {
+function render3D(
+  result
+) {
   if (!renderer) {
     return;
   }
@@ -6108,19 +6292,23 @@ function render3D(result) {
     );
 
   const scale =
-    10 / L;
+    10 /
+    L;
 
   const scaledL =
-    L * scale;
+    L *
+    scale;
 
   const scaledW =
-    W * scale;
+    W *
+    scale;
 
   const scaledH =
-    H * scale;
+    H *
+    scale;
 
 
-  /* GROUND GRID */
+  /* GROUND */
 
   const grid =
     new THREE.GridHelper(
@@ -6131,144 +6319,195 @@ function render3D(result) {
     );
 
   grid.position.set(
-    scaledL / 2,
-    -0.04,
-    scaledW / 2
+    scaledL /
+      2,
+    -0.05,
+    scaledW /
+      2
   );
 
-  cargoGroup.add(grid);
+  cargoGroup.add(
+    grid
+  );
 
 
-  /* CONTAINER FLOOR */
+  /* DETAILED CONTAINER */
 
-  const floor =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
+  const containerModel =
+    buildDetailedContainer(
+      scaledL,
+      scaledW,
+      scaledH
+    );
+
+  cargoGroup.add(
+    containerModel
+  );
+
+
+  /* TRUE 3D DIMENSIONS */
+
+  if (
+    showSceneDimensions
+  ) {
+    const dimensionGroup =
+      new THREE.Group();
+
+    const dimensionColour =
+      0x24579a;
+
+    addDimensionLine(
+      dimensionGroup,
+
+      new THREE.Vector3(
+        0,
+        scaledH +
+          0.48,
+        -0.2
+      ),
+
+      new THREE.Vector3(
         scaledL,
-        0.04,
+        scaledH +
+          0.48,
+        -0.2
+      ),
+
+      `L · ${formatDimension(
+        L
+      )} ${dimensionLabel()}`,
+
+      dimensionColour
+    );
+
+    addDimensionLine(
+      dimensionGroup,
+
+      new THREE.Vector3(
+        -0.42,
+        0,
+        -0.08
+      ),
+
+      new THREE.Vector3(
+        -0.42,
+        scaledH,
+        -0.08
+      ),
+
+      `H · ${formatDimension(
+        H
+      )} ${dimensionLabel()}`,
+
+      dimensionColour
+    );
+
+    addDimensionLine(
+      dimensionGroup,
+
+      new THREE.Vector3(
+        -0.22,
+        0.05,
+        0
+      ),
+
+      new THREE.Vector3(
+        -0.22,
+        0.05,
         scaledW
       ),
 
-      new THREE.MeshStandardMaterial({
-        color: 0xd8dee7,
-        roughness: 0.82,
-        metalness: 0.08
-      })
+      `W · ${formatDimension(
+        W
+      )} ${dimensionLabel()}`,
+
+      dimensionColour
     );
 
-  floor.position.set(
-    scaledL / 2,
-    -0.025,
-    scaledW / 2
-  );
-
-  floor.receiveShadow = true;
-
-  cargoGroup.add(floor);
-
-
-  /* TRANSPARENT CONTAINER SHELL */
-
-  const containerGeometry =
-    new THREE.BoxGeometry(
-      scaledL,
-      scaledH,
-      scaledW
+    cargoGroup.add(
+      dimensionGroup
     );
+  }
 
-  const transparentShell =
-    new THREE.Mesh(
-      containerGeometry,
 
-      new THREE.MeshPhysicalMaterial({
-        color: 0xd9e2ee,
-        transparent: true,
-        opacity: 0.055,
-        roughness: 0.35,
-        metalness: 0.05,
-        side: THREE.DoubleSide,
-        depthWrite: false
-      })
+  /* PRODUCT OCCUPANCY MARKERS */
+
+  if (
+    showOccupancyMarkers &&
+    result
+  ) {
+    const occupancyRows =
+      calculateProductOccupancy(
+        result
+      );
+
+    occupancyRows.forEach(
+      (
+        row,
+        index
+      ) => {
+        const y =
+          scaledH +
+          0.82 +
+          index *
+          0.20;
+
+        const markerGroup =
+          new THREE.Group();
+
+        addOccupancyMarker(
+          markerGroup,
+
+          row.minX *
+            scale,
+
+          row.maxX *
+            scale,
+
+          y,
+
+          -0.03,
+
+          displayColour(
+            row.item
+          ),
+
+          `${row.item.Product_Name} · ≈ ${formatDecimal(
+            row.lengthFt,
+            1
+          )} ft`
+        );
+
+        cargoGroup.add(
+          markerGroup
+        );
+      }
     );
-
-  transparentShell.position.set(
-    scaledL / 2,
-    scaledH / 2,
-    scaledW / 2
-  );
-
-  cargoGroup.add(
-    transparentShell
-  );
+  }
 
 
-  /* CONTAINER EDGE FRAME */
-
-  const edges =
-    new THREE.LineSegments(
-      new THREE.EdgesGeometry(
-        containerGeometry
-      ),
-
-      new THREE.LineBasicMaterial({
-        color: 0x4f5c6d,
-        transparent: true,
-        opacity: 0.9
-      })
-    );
-
-  edges.position.copy(
-    transparentShell.position
-  );
-
-  cargoGroup.add(edges);
-
-
-  /* DOOR FRAME */
-
-  const doorFrame =
-    new THREE.LineSegments(
-      new THREE.EdgesGeometry(
-        new THREE.BoxGeometry(
-          0.035,
-          scaledH,
-          scaledW
-        )
-      ),
-
-      new THREE.LineBasicMaterial({
-        color: 0x344152
-      })
-    );
-
-  doorFrame.position.set(
-    0,
-    scaledH / 2,
-    scaledW / 2
-  );
-
-  cargoGroup.add(
-    doorFrame
-  );
-
-
-  /* BOXES */
+  /* CARGO BOXES */
 
   result.placements.forEach(
     placement => {
+      const isFocused =
+        !highlightedItemId ||
+        highlightedItemId ===
+          placement.itemId;
+
       const geometry =
         new THREE.BoxGeometry(
           placement.l *
           scale *
-          0.97,
+          0.972,
 
           placement.h *
           scale *
-          0.97,
+          0.972,
 
           placement.w *
           scale *
-          0.97
+          0.972
         );
 
       const material =
@@ -6278,10 +6517,18 @@ function render3D(result) {
             '#64748B',
 
           roughness:
-            0.52,
+            0.54,
 
           metalness:
-            0.02
+            0.015,
+
+          transparent:
+            true,
+
+          opacity:
+            isFocused
+              ? 0.96
+              : 0.12
         });
 
       const mesh =
@@ -6293,25 +6540,31 @@ function render3D(result) {
       mesh.position.set(
         (
           placement.x +
-          placement.l / 2
+          placement.l /
+          2
         ) *
         scale,
 
         (
           placement.z +
-          placement.h / 2
+          placement.h /
+          2
         ) *
         scale,
 
         (
           placement.y +
-          placement.w / 2
+          placement.w /
+          2
         ) *
         scale
       );
 
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
+      mesh.castShadow =
+        isFocused;
+
+      mesh.receiveShadow =
+        true;
 
       const outline =
         new THREE.LineSegments(
@@ -6320,21 +6573,975 @@ function render3D(result) {
           ),
 
           new THREE.LineBasicMaterial({
-            color: 0x26313f,
-            transparent: true,
-            opacity: 0.38
+            color:
+              0x26313f,
+
+            transparent:
+              true,
+
+            opacity:
+              isFocused
+                ? 0.38
+                : 0.06
           })
         );
 
-      mesh.add(outline);
+      mesh.add(
+        outline
+      );
 
-      cargoGroup.add(mesh);
+      cargoGroup.add(
+        mesh
+      );
     }
   );
+
 
   applyView(
     currentView
   );
+}
+
+
+function buildDetailedContainer(
+  L,
+  W,
+  H
+) {
+  const group =
+    new THREE.Group();
+
+  const steel =
+    new THREE.MeshStandardMaterial({
+      color:
+        0x68788a,
+
+      roughness:
+        0.58,
+
+      metalness:
+        0.52
+    });
+
+  const darkSteel =
+    new THREE.MeshStandardMaterial({
+      color:
+        0x394757,
+
+      roughness:
+        0.52,
+
+      metalness:
+        0.62
+    });
+
+  const wallOpacity =
+    containerVisualMode ===
+    'cutaway'
+      ? 0.075
+      : 0.20;
+
+  const wallMaterial =
+    new THREE.MeshPhysicalMaterial({
+      color:
+        0xa9b7c5,
+
+      transparent:
+        true,
+
+      opacity:
+        wallOpacity,
+
+      roughness:
+        0.44,
+
+      metalness:
+        0.22,
+
+      side:
+        THREE.DoubleSide,
+
+      depthWrite:
+        false
+    });
+
+  const floorMat =
+    new THREE.MeshStandardMaterial({
+      color:
+        0x8e7558,
+
+      roughness:
+        0.86,
+
+      metalness:
+        0.02
+    });
+
+  const rail =
+    0.055;
+
+  const post =
+    0.075;
+
+
+  /* WOOD / STEEL FLOOR */
+
+  const floor =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        L,
+        0.045,
+        W
+      ),
+      floorMat
+    );
+
+  floor.position.set(
+    L /
+      2,
+    -0.025,
+    W /
+      2
+  );
+
+  floor.receiveShadow =
+    true;
+
+  group.add(
+    floor
+  );
+
+
+  /* FLOOR PLANK LINES */
+
+  const plankCount =
+    16;
+
+  for (
+    let i = 1;
+    i <
+    plankCount;
+    i++
+  ) {
+    const z =
+      W *
+      i /
+      plankCount;
+
+    const plank =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          L,
+          0.006,
+          0.008
+        ),
+        darkSteel
+      );
+
+    plank.position.set(
+      L /
+        2,
+      0.005,
+      z
+    );
+
+    group.add(
+      plank
+    );
+  }
+
+
+  /* BOTTOM + TOP LONGITUDINAL RAILS */
+
+  [
+    0,
+    W
+  ].forEach(
+    z => {
+      const bottom =
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            L +
+              post *
+              2,
+            rail,
+            rail
+          ),
+          darkSteel
+        );
+
+      bottom.position.set(
+        L /
+          2,
+        0,
+        z
+      );
+
+      group.add(
+        bottom
+      );
+
+      const top =
+        bottom.clone();
+
+      top.position.y =
+        H;
+
+      group.add(
+        top
+      );
+    }
+  );
+
+
+  /* END CROSS RAILS */
+
+  [
+    0,
+    L
+  ].forEach(
+    x => {
+      [
+        0,
+        H
+      ].forEach(
+        y => {
+          const beam =
+            new THREE.Mesh(
+              new THREE.BoxGeometry(
+                rail,
+                rail,
+                W
+              ),
+              darkSteel
+            );
+
+          beam.position.set(
+            x,
+            y,
+            W /
+              2
+          );
+
+          group.add(
+            beam
+          );
+        }
+      );
+    }
+  );
+
+
+  /* CORNER POSTS */
+
+  [
+    [0, 0],
+    [0, W],
+    [L, 0],
+    [L, W]
+  ].forEach(
+    (
+      [
+        x,
+        z
+      ]
+    ) => {
+      const corner =
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            post,
+            H,
+            post
+          ),
+          steel
+        );
+
+      corner.position.set(
+        x,
+        H /
+          2,
+        z
+      );
+
+      group.add(
+        corner
+      );
+    }
+  );
+
+
+  /* FAR SIDE WALL */
+
+  const farWall =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        L,
+        H,
+        0.018
+      ),
+      wallMaterial
+    );
+
+  farWall.position.set(
+    L /
+      2,
+    H /
+      2,
+    W
+  );
+
+  group.add(
+    farWall
+  );
+
+
+  /* NEAR SIDE: CUTAWAY OR FULL */
+
+  if (
+    containerVisualMode !==
+    'cutaway'
+  ) {
+    const nearWall =
+      farWall.clone();
+
+    nearWall.position.z =
+      0;
+
+    group.add(
+      nearWall
+    );
+  }
+
+
+  /* ROOF */
+
+  const roof =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        L,
+        0.018,
+        W
+      ),
+      wallMaterial
+    );
+
+  roof.position.set(
+    L /
+      2,
+    H,
+    W /
+      2
+  );
+
+  group.add(
+    roof
+  );
+
+
+  /* SIDE CORRUGATION RIBS */
+
+  const ribCount =
+    Math.max(
+      20,
+      Math.floor(
+        L /
+        0.22
+      )
+    );
+
+  for (
+    let i = 1;
+    i <
+    ribCount;
+    i++
+  ) {
+    const x =
+      L *
+      i /
+      ribCount;
+
+    const farRib =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          0.018,
+          H *
+            0.92,
+          0.028
+        ),
+        steel
+      );
+
+    farRib.position.set(
+      x,
+      H /
+        2,
+      W +
+        0.012
+    );
+
+    group.add(
+      farRib
+    );
+
+    if (
+      containerVisualMode !==
+      'cutaway'
+    ) {
+      const nearRib =
+        farRib.clone();
+
+      nearRib.position.z =
+        -0.012;
+
+      group.add(
+        nearRib
+      );
+    }
+  }
+
+
+  /* ROOF RIBS */
+
+  const roofRibCount =
+    Math.max(
+      12,
+      Math.floor(
+        L /
+        0.45
+      )
+    );
+
+  for (
+    let i = 1;
+    i <
+    roofRibCount;
+    i++
+  ) {
+    const x =
+      L *
+      i /
+      roofRibCount;
+
+    const rib =
+      new THREE.Mesh(
+        new THREE.BoxGeometry(
+          0.025,
+          0.028,
+          W
+        ),
+        steel
+      );
+
+    rib.position.set(
+      x,
+      H +
+        0.018,
+      W /
+        2
+    );
+
+    group.add(
+      rib
+    );
+  }
+
+
+  /* BACK WALL (x=0) */
+
+  const backWall =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        0.018,
+        H,
+        W
+      ),
+      wallMaterial
+    );
+
+  backWall.position.set(
+    0,
+    H /
+      2,
+    W /
+      2
+  );
+
+  group.add(
+    backWall
+  );
+
+
+  /* DOOR FRAME AT x=L */
+
+  const doorPanelMaterial =
+    new THREE.MeshPhysicalMaterial({
+      color:
+        0x8191a2,
+
+      transparent:
+        true,
+
+      opacity:
+        containerVisualMode ===
+          'cutaway'
+          ? 0.10
+          : 0.24,
+
+      roughness:
+        0.45,
+
+      metalness:
+        0.30,
+
+      depthWrite:
+        false
+    });
+
+  const leftDoor =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        0.022,
+        H *
+          0.94,
+        W /
+          2 -
+          0.035
+      ),
+      doorPanelMaterial
+    );
+
+  leftDoor.position.set(
+    L +
+      0.008,
+    H /
+      2,
+    W /
+      4
+  );
+
+  group.add(
+    leftDoor
+  );
+
+  const rightDoor =
+    leftDoor.clone();
+
+  rightDoor.position.z =
+    W *
+    0.75;
+
+  group.add(
+    rightDoor
+  );
+
+
+  /* DOOR LOCKING BARS */
+
+  [
+    W *
+      0.18,
+    W *
+      0.36,
+    W *
+      0.64,
+    W *
+      0.82
+  ].forEach(
+    z => {
+      const bar =
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            0.045,
+            H *
+              0.84,
+            0.025
+          ),
+          darkSteel
+        );
+
+      bar.position.set(
+        L +
+          0.04,
+        H /
+          2,
+        z
+      );
+
+      group.add(
+        bar
+      );
+    }
+  );
+
+
+  /* DOOR CENTRE SEAM */
+
+  const seam =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        0.04,
+        H *
+          0.94,
+        0.025
+      ),
+      darkSteel
+    );
+
+  seam.position.set(
+    L +
+      0.035,
+    H /
+      2,
+    W /
+      2
+  );
+
+  group.add(
+    seam
+  );
+
+
+  return group;
+}
+
+
+function addDimensionLine(
+  group,
+  start,
+  end,
+  label,
+  colour
+) {
+  const material =
+    new THREE.LineBasicMaterial({
+      color:
+        colour
+    });
+
+  const line =
+    new THREE.Line(
+      new THREE.BufferGeometry()
+        .setFromPoints([
+          start,
+          end
+        ]),
+      material
+    );
+
+  group.add(
+    line
+  );
+
+  const direction =
+    new THREE.Vector3()
+      .subVectors(
+        end,
+        start
+      )
+      .normalize();
+
+  const arrowLength =
+    0.10;
+
+  [
+    {
+      point:
+        start,
+      dir:
+        direction
+    },
+    {
+      point:
+        end,
+      dir:
+        direction.clone()
+          .multiplyScalar(
+            -1
+          )
+    }
+  ].forEach(
+    arrow => {
+      const cone =
+        new THREE.Mesh(
+          new THREE.ConeGeometry(
+            0.035,
+            arrowLength,
+            10
+          ),
+          new THREE.MeshBasicMaterial({
+            color:
+              colour
+          })
+        );
+
+      const axis =
+        new THREE.Vector3(
+          0,
+          1,
+          0
+        );
+
+      cone.quaternion
+        .setFromUnitVectors(
+          axis,
+          arrow.dir
+        );
+
+      cone.position.copy(
+        arrow.point
+      );
+
+      cone.position.add(
+        arrow.dir
+          .clone()
+          .multiplyScalar(
+            arrowLength /
+            2
+          )
+      );
+
+      group.add(
+        cone
+      );
+    }
+  );
+
+  const sprite =
+    makeTextSprite(
+      label,
+      '#173d7b',
+      'rgba(255,255,255,0.94)'
+    );
+
+  sprite.position
+    .copy(
+      start.clone()
+        .add(
+          end
+        )
+        .multiplyScalar(
+          0.5
+        )
+    );
+
+  sprite.position.y +=
+    0.10;
+
+  group.add(
+    sprite
+  );
+}
+
+
+function addOccupancyMarker(
+  group,
+  startX,
+  endX,
+  y,
+  z,
+  colour,
+  label
+) {
+  const parsed =
+    new THREE.Color(
+      colour
+    );
+
+  const material =
+    new THREE.LineBasicMaterial({
+      color:
+        parsed
+    });
+
+  const line =
+    new THREE.Line(
+      new THREE.BufferGeometry()
+        .setFromPoints([
+          new THREE.Vector3(
+            startX,
+            y,
+            z
+          ),
+          new THREE.Vector3(
+            endX,
+            y,
+            z
+          )
+        ]),
+      material
+    );
+
+  group.add(
+    line
+  );
+
+  [
+    startX,
+    endX
+  ].forEach(
+    x => {
+      const tick =
+        new THREE.Line(
+          new THREE.BufferGeometry()
+            .setFromPoints([
+              new THREE.Vector3(
+                x,
+                y -
+                  0.055,
+                z
+              ),
+              new THREE.Vector3(
+                x,
+                y +
+                  0.055,
+                z
+              )
+            ]),
+          material
+        );
+
+      group.add(
+        tick
+      );
+    }
+  );
+
+  const sprite =
+    makeTextSprite(
+      label,
+      colour,
+      'rgba(255,255,255,0.93)'
+    );
+
+  sprite.position.set(
+    (
+      startX +
+      endX
+    ) /
+      2,
+    y +
+      0.09,
+    z
+  );
+
+  group.add(
+    sprite
+  );
+}
+
+
+function makeTextSprite(
+  text,
+  textColour =
+    '#173d7b',
+  background =
+    'rgba(255,255,255,0.94)'
+) {
+  const canvas =
+    document.createElement(
+      'canvas'
+    );
+
+  const context =
+    canvas.getContext(
+      '2d'
+    );
+
+  const fontSize =
+    34;
+
+  context.font =
+    `700 ${fontSize}px Arial`;
+
+  const metrics =
+    context.measureText(
+      text
+    );
+
+  const paddingX =
+    18;
+
+  const paddingY =
+    12;
+
+  canvas.width =
+    Math.ceil(
+      metrics.width +
+      paddingX *
+      2
+    );
+
+  canvas.height =
+    fontSize +
+    paddingY *
+    2;
+
+  context.font =
+    `700 ${fontSize}px Arial`;
+
+  context.fillStyle =
+    background;
+
+  context.fillRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  context.fillStyle =
+    textColour;
+
+  context.textBaseline =
+    'middle';
+
+  context.fillText(
+    text,
+    paddingX,
+    canvas.height /
+      2
+  );
+
+  const texture =
+    new THREE.CanvasTexture(
+      canvas
+    );
+
+  texture.needsUpdate =
+    true;
+
+  const material =
+    new THREE.SpriteMaterial({
+      map:
+        texture,
+
+      transparent:
+        true,
+
+      depthTest:
+        false
+    });
+
+  const sprite =
+    new THREE.Sprite(
+      material
+    );
+
+  const aspect =
+    canvas.width /
+    canvas.height;
+
+  const height =
+    0.22;
+
+  sprite.scale.set(
+    height *
+      aspect,
+    height,
+    1
+  );
+
+  return sprite;
 }
 
 
@@ -6484,8 +7691,8 @@ function resizeViewer() {
 
   const height =
     width < 650
-      ? 390
-      : 500;
+      ? 410
+      : 535;
 
   renderer.setSize(
     width,
@@ -6529,14 +7736,26 @@ function animate() {
 function renderLegend() {
   legend.innerHTML =
     items
-      .map(item => `
-        <div class="legend-item">
+      .map(
+        item => `
+        <button
+          class="legend-item legend-button ${highlightedItemId === item.Item_ID ? 'active' : ''}"
+          data-item-id="${escapeHtml(
+            item.Item_ID
+          )}"
+          type="button"
+          title="Highlight ${escapeHtml(
+            item.Product_Name
+          )}"
+        >
           <span
             class="legend-colour"
             style="
               background:
               ${escapeHtml(
-                item.Colour
+                displayColour(
+                  item
+                )
               )}
             "
           ></span>
@@ -6549,9 +7768,183 @@ function renderLegend() {
               item.Quantity
             )})
           </span>
-        </div>
-      `)
+        </button>
+      `
+      )
       .join('');
+
+  legend
+    .querySelectorAll(
+      '.legend-button'
+    )
+    .forEach(
+      button => {
+        button.addEventListener(
+          'click',
+          () =>
+            toggleProductFocus(
+              button.dataset.itemId
+            )
+        );
+      }
+    );
+}
+
+
+function renderOccupancyList(
+  result
+) {
+  const list =
+    document.getElementById(
+      'occupancyList'
+    );
+
+  if (!list) {
+    return;
+  }
+
+  if (
+    !result ||
+    !result.placements.length
+  ) {
+    list.innerHTML =
+      `
+      <div class="occupancy-empty">
+        No loaded cargo.
+      </div>
+      `;
+
+    return;
+  }
+
+  const rows =
+    calculateProductOccupancy(
+      result
+    );
+
+  list.innerHTML =
+    rows
+      .map(
+        row => `
+        <button
+          class="occupancy-row ${highlightedItemId === row.item.Item_ID ? 'active' : ''}"
+          data-item-id="${escapeHtml(
+            row.item.Item_ID
+          )}"
+          type="button"
+        >
+          <span
+            class="occupancy-dot"
+            style="background:${escapeHtml(
+              displayColour(
+                row.item
+              )
+            )}"
+          ></span>
+
+          <span class="occupancy-name">
+            ${escapeHtml(
+              row.item.Product_Name
+            )}
+          </span>
+
+          <strong>
+            ${formatDecimal(
+              row.startFt,
+              1
+            )}–${formatDecimal(
+              row.endFt,
+              1
+            )} ft
+          </strong>
+
+          <small>
+            ≈ ${formatDecimal(
+              row.lengthFt,
+              1
+            )} ft occupied
+          </small>
+        </button>
+      `
+      )
+      .join('');
+
+  list
+    .querySelectorAll(
+      '.occupancy-row'
+    )
+    .forEach(
+      button => {
+        button.addEventListener(
+          'click',
+          () =>
+            toggleProductFocus(
+              button.dataset.itemId
+            )
+        );
+      }
+    );
+}
+
+
+function calculateProductOccupancy(
+  result
+) {
+  return items
+    .map(
+      item => {
+        const placements =
+          result.placements.filter(
+            placement =>
+              placement.itemId ===
+              item.Item_ID
+          );
+
+        if (
+          !placements.length
+        ) {
+          return null;
+        }
+
+        const minX =
+          Math.min(
+            ...placements.map(
+              placement =>
+                placement.x
+            )
+          );
+
+        const maxX =
+          Math.max(
+            ...placements.map(
+              placement =>
+                placement.x +
+                placement.l
+            )
+          );
+
+        return {
+          item,
+          minX,
+          maxX,
+          startFt:
+            minX /
+            304.8,
+
+          endFt:
+            maxX /
+            304.8,
+
+          lengthFt:
+            (
+              maxX -
+              minX
+            ) /
+            304.8
+        };
+      }
+    )
+    .filter(Boolean);
 }
 
 
@@ -7068,6 +8461,83 @@ function bindEvents() {
       );
     }
   );
+
+  document
+    .getElementById(
+      'shellModeBtn'
+    )
+    .addEventListener(
+      'click',
+      event => {
+        containerVisualMode =
+          containerVisualMode ===
+          'cutaway'
+            ? 'shell'
+            : 'cutaway';
+
+        event.currentTarget
+          .textContent =
+            containerVisualMode ===
+            'cutaway'
+              ? 'Cutaway'
+              : 'Full Shell';
+
+        event.currentTarget
+          .classList.toggle(
+            'active-tool',
+            containerVisualMode ===
+            'cutaway'
+          );
+
+        render3D(
+          packingResult
+        );
+      }
+    );
+
+  document
+    .getElementById(
+      'dimensionToggleBtn'
+    )
+    .addEventListener(
+      'click',
+      event => {
+        showSceneDimensions =
+          !showSceneDimensions;
+
+        event.currentTarget
+          .classList.toggle(
+            'active-tool',
+            showSceneDimensions
+          );
+
+        render3D(
+          packingResult
+        );
+      }
+    );
+
+  document
+    .getElementById(
+      'occupancyToggleBtn'
+    )
+    .addEventListener(
+      'click',
+      event => {
+        showOccupancyMarkers =
+          !showOccupancyMarkers;
+
+        event.currentTarget
+          .classList.toggle(
+            'active-tool',
+            showOccupancyMarkers
+          );
+
+        render3D(
+          packingResult
+        );
+      }
+    );
 
   document
     .getElementById('rotateViewBtn')
