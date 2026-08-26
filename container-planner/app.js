@@ -30,133 +30,259 @@ const CARGO_COLOURS = [
 
 
 /* =========================
+   UNITS
+========================= */
+
+const DIMENSION_UNITS = {
+
+  mm: {
+    label: 'mm',
+    toMM: 1
+  },
+
+  cm: {
+    label: 'cm',
+    toMM: 10
+  },
+
+  in: {
+    label: 'in',
+    toMM: 25.4
+  },
+
+  ft: {
+    label: 'ft',
+    toMM: 304.8
+  }
+
+};
+
+
+const WEIGHT_UNITS = {
+
+  kg: {
+    label: 'kg',
+    toKG: 1
+  },
+
+  lb: {
+    label: 'lb',
+    toKG: 0.45359237
+  }
+
+};
+
+
+/* =========================
    ELEMENTS
 ========================= */
 
 const dashboardView =
-  document.getElementById('dashboardView');
+  document.getElementById(
+    'dashboardView'
+  );
 
 const planView =
-  document.getElementById('planView');
+  document.getElementById(
+    'planView'
+  );
 
 const plansList =
-  document.getElementById('plansList');
+  document.getElementById(
+    'plansList'
+  );
 
 const containersList =
-  document.getElementById('containersList');
+  document.getElementById(
+    'containersList'
+  );
 
 const newPlanBtn =
-  document.getElementById('newPlanBtn');
+  document.getElementById(
+    'newPlanBtn'
+  );
 
 const backBtn =
-  document.getElementById('backBtn');
+  document.getElementById(
+    'backBtn'
+  );
 
 const saveStatus =
-  document.getElementById('saveStatus');
+  document.getElementById(
+    'saveStatus'
+  );
 
 
 /* NEW PLAN */
 
 const newPlanModal =
-  document.getElementById('newPlanModal');
+  document.getElementById(
+    'newPlanModal'
+  );
 
 const closeModalBtn =
-  document.getElementById('closeModalBtn');
+  document.getElementById(
+    'closeModalBtn'
+  );
 
 const cancelPlanBtn =
-  document.getElementById('cancelPlanBtn');
+  document.getElementById(
+    'cancelPlanBtn'
+  );
 
 const newPlanForm =
-  document.getElementById('newPlanForm');
+  document.getElementById(
+    'newPlanForm'
+  );
 
 const createPlanBtn =
-  document.getElementById('createPlanBtn');
+  document.getElementById(
+    'createPlanBtn'
+  );
 
 const containerType =
-  document.getElementById('containerType');
+  document.getElementById(
+    'containerType'
+  );
 
 
 /* PLAN */
 
 const planTitle =
-  document.getElementById('planTitle');
+  document.getElementById(
+    'planTitle'
+  );
 
 const planStatusText =
-  document.getElementById('planStatusText');
+  document.getElementById(
+    'planStatusText'
+  );
 
 const planEditForm =
-  document.getElementById('planEditForm');
+  document.getElementById(
+    'planEditForm'
+  );
 
 const editContainer =
-  document.getElementById('editContainer');
+  document.getElementById(
+    'editContainer'
+  );
+
+const editDimensionUnit =
+  document.getElementById(
+    'editDimensionUnit'
+  );
+
+const editWeightUnit =
+  document.getElementById(
+    'editWeightUnit'
+  );
 
 const selectedContainerInfo =
-  document.getElementById('selectedContainerInfo');
+  document.getElementById(
+    'selectedContainerInfo'
+  );
 
 
 /* CARGO */
 
 const addCargoBtn =
-  document.getElementById('addCargoBtn');
+  document.getElementById(
+    'addCargoBtn'
+  );
 
 const cargoModal =
-  document.getElementById('cargoModal');
+  document.getElementById(
+    'cargoModal'
+  );
 
 const cargoModalTitle =
-  document.getElementById('cargoModalTitle');
+  document.getElementById(
+    'cargoModalTitle'
+  );
 
 const cargoForm =
-  document.getElementById('cargoForm');
+  document.getElementById(
+    'cargoForm'
+  );
 
 const closeCargoBtn =
-  document.getElementById('closeCargoBtn');
+  document.getElementById(
+    'closeCargoBtn'
+  );
 
 const cancelCargoBtn =
-  document.getElementById('cancelCargoBtn');
+  document.getElementById(
+    'cancelCargoBtn'
+  );
 
 const saveCargoBtn =
-  document.getElementById('saveCargoBtn');
+  document.getElementById(
+    'saveCargoBtn'
+  );
 
 const cargoItemId =
-  document.getElementById('cargoItemId');
+  document.getElementById(
+    'cargoItemId'
+  );
 
 const cargoList =
-  document.getElementById('cargoList');
+  document.getElementById(
+    'cargoList'
+  );
 
 
 /* TOTALS */
 
 const totalPackages =
-  document.getElementById('totalPackages');
+  document.getElementById(
+    'totalPackages'
+  );
 
 const totalWeight =
-  document.getElementById('totalWeight');
+  document.getElementById(
+    'totalWeight'
+  );
 
 const totalCBM =
-  document.getElementById('totalCBM');
+  document.getElementById(
+    'totalCBM'
+  );
 
 const volumePercent =
-  document.getElementById('volumePercent');
+  document.getElementById(
+    'volumePercent'
+  );
 
 const payloadPercent =
-  document.getElementById('payloadPercent');
+  document.getElementById(
+    'payloadPercent'
+  );
 
 
 /* =========================
    API
 ========================= */
 
-async function apiGet(action, params = {}) {
+async function apiGet(
+  action,
+  params = {}
+) {
 
-  const url = new URL(API_URL);
+  const url =
+    new URL(
+      API_URL
+    );
 
   url.searchParams.set(
     'action',
     action
   );
 
-  Object.entries(params)
-    .forEach(([key, value]) => {
+  Object.entries(
+    params
+  ).forEach(
+    ([key, value]) => {
 
       if (
         value !== undefined &&
@@ -170,7 +296,8 @@ async function apiGet(action, params = {}) {
 
       }
 
-    });
+    }
+  );
 
   const response =
     await fetch(
@@ -181,13 +308,17 @@ async function apiGet(action, params = {}) {
 }
 
 
-async function apiPost(payload) {
+async function apiPost(
+  payload
+) {
 
   const response =
     await fetch(
       API_URL,
       {
-        method: 'POST',
+
+        method:
+          'POST',
 
         headers: {
           'Content-Type':
@@ -195,7 +326,10 @@ async function apiPost(payload) {
         },
 
         body:
-          JSON.stringify(payload)
+          JSON.stringify(
+            payload
+          )
+
       }
     );
 
@@ -226,9 +360,12 @@ async function loadContainers() {
       );
 
     if (!data.ok) {
+
       throw new Error(
-        data.message
+        data.message ||
+        'Unable to load containers.'
       );
+
     }
 
     containers =
@@ -241,9 +378,13 @@ async function loadContainers() {
   } catch (error) {
 
     containersList.innerHTML =
-      `<p class="muted">
-        ${escapeHtml(error.message)}
-      </p>`;
+      `
+      <p class="muted">
+        ${escapeHtml(
+          error.message
+        )}
+      </p>
+      `;
 
   }
 
@@ -260,9 +401,12 @@ async function loadPlans() {
       );
 
     if (!data.ok) {
+
       throw new Error(
-        data.message
+        data.message ||
+        'Unable to load plans.'
       );
+
     }
 
     renderPlans(
@@ -272,9 +416,13 @@ async function loadPlans() {
   } catch (error) {
 
     plansList.innerHTML =
-      `<p class="muted">
-        ${escapeHtml(error.message)}
-      </p>`;
+      `
+      <p class="muted">
+        ${escapeHtml(
+          error.message
+        )}
+      </p>
+      `;
 
   }
 
@@ -285,99 +433,125 @@ async function loadPlans() {
    DASHBOARD
 ========================= */
 
-function renderPlans(plans) {
+function renderPlans(
+  plans
+) {
 
   if (!plans.length) {
 
     plansList.innerHTML =
-      '<p class="muted">No stuffing plans yet.</p>';
+      `
+      <p class="muted">
+        No stuffing plans yet.
+      </p>
+      `;
 
     return;
   }
 
+
   plansList.innerHTML = '';
 
-  plans.forEach(plan => {
 
-    const button =
-      document.createElement(
-        'button'
+  plans.forEach(
+    plan => {
+
+      const button =
+        document.createElement(
+          'button'
+        );
+
+      button.type =
+        'button';
+
+      button.className =
+        'plan-row';
+
+
+      button.innerHTML =
+        `
+        <div>
+
+          <div class="plan-id">
+
+            ${escapeHtml(
+              plan.Plan_ID
+            )}
+
+          </div>
+
+
+          <div class="plan-buyer">
+
+            ${escapeHtml(
+              plan.Buyer_Name ||
+              'Buyer not entered'
+            )}
+
+          </div>
+
+
+          <div class="muted">
+
+            ${escapeHtml(
+              plan.Port_of_Loading ||
+              '—'
+            )}
+
+            →
+
+            ${escapeHtml(
+              plan.Port_of_Discharge ||
+              '—'
+            )}
+
+          </div>
+
+
+          <div class="muted">
+
+            ${escapeHtml(
+              getContainerName(
+                plan.Container_Type
+              )
+            )}
+
+            ·
+
+            ${escapeHtml(
+              plan.Status ||
+              'Draft'
+            )}
+
+          </div>
+
+        </div>
+
+
+        <div class="plan-arrow">
+          ›
+        </div>
+        `;
+
+
+      button.addEventListener(
+        'click',
+        () => {
+
+          openPlan(
+            plan.Plan_ID
+          );
+
+        }
       );
 
-    button.type =
-      'button';
 
-    button.className =
-      'plan-row';
+      plansList.appendChild(
+        button
+      );
 
-    button.innerHTML =
-      `
-      <div>
-
-        <div class="plan-id">
-          ${escapeHtml(plan.Plan_ID)}
-        </div>
-
-        <div class="plan-buyer">
-          ${escapeHtml(
-            plan.Buyer_Name ||
-            'Buyer not entered'
-          )}
-        </div>
-
-        <div class="muted">
-
-          ${escapeHtml(
-            plan.Port_of_Loading ||
-            '—'
-          )}
-
-          →
-
-          ${escapeHtml(
-            plan.Port_of_Discharge ||
-            '—'
-          )}
-
-        </div>
-
-        <div class="muted">
-
-          ${escapeHtml(
-            getContainerName(
-              plan.Container_Type
-            )
-          )}
-
-          ·
-
-          ${escapeHtml(
-            plan.Status ||
-            'Draft'
-          )}
-
-        </div>
-
-      </div>
-
-      <div class="plan-arrow">
-        ›
-      </div>
-      `;
-
-    button.addEventListener(
-      'click',
-      () =>
-        openPlan(
-          plan.Plan_ID
-        )
-    );
-
-    plansList.appendChild(
-      button
-    );
-
-  });
+    }
+  );
 
 }
 
@@ -387,58 +561,73 @@ function renderContainers() {
   if (!containers.length) {
 
     containersList.innerHTML =
-      '<p class="muted">No container presets found.</p>';
+      `
+      <p class="muted">
+        No container presets found.
+      </p>
+      `;
 
     return;
   }
 
+
   containersList.innerHTML =
     containers
-      .map(container => `
-        <div class="container-row">
+      .map(
+        container => {
 
-          <div class="container-name">
-            ${escapeHtml(
-              container.Container_Name
-            )}
+          return `
+          <div class="container-row">
+
+            <div class="container-name">
+
+              ${escapeHtml(
+                container.Container_Name
+              )}
+
+            </div>
+
+
+            <div class="muted">
+
+              ${formatNumber(
+                container.Internal_Length_mm
+              )}
+
+              ×
+
+              ${formatNumber(
+                container.Internal_Width_mm
+              )}
+
+              ×
+
+              ${formatNumber(
+                container.Internal_Height_mm
+              )}
+
+              mm
+
+            </div>
+
+
+            <div class="muted">
+
+              Payload:
+
+              ${formatNumber(
+                container.Max_Payload_Kg
+              )}
+
+              kg
+
+            </div>
+
           </div>
+          `;
 
-          <div class="muted">
-
-            ${formatNumber(
-              container.Internal_Length_mm
-            )}
-
-            ×
-
-            ${formatNumber(
-              container.Internal_Width_mm
-            )}
-
-            ×
-
-            ${formatNumber(
-              container.Internal_Height_mm
-            )}
-
-            mm
-
-          </div>
-
-          <div class="muted">
-
-            Payload:
-
-            ${formatNumber(
-              container.Max_Payload_Kg
-            )}
-
-            kg
-
-          </div>
-
-        </div>
-      `)
+        }
+      )
       .join('');
 
 }
@@ -452,26 +641,37 @@ function populateContainerSelects() {
 
   const options =
     containers
-      .map(container => `
-        <option
-          value="${escapeHtml(
-            container.Container_ID
-          )}"
-        >
-          ${escapeHtml(
-            container.Container_Name
-          )}
-        </option>
-      `)
+      .map(
+        container => {
+
+          return `
+          <option
+            value="${escapeHtml(
+              container.Container_ID
+            )}"
+          >
+
+            ${escapeHtml(
+              container.Container_Name
+            )}
+
+          </option>
+          `;
+
+        }
+      )
       .join('');
+
 
   containerType.innerHTML =
     `
     <option value="">
       Select container
     </option>
+
     ${options}
     `;
+
 
   editContainer.innerHTML =
     options;
@@ -480,7 +680,7 @@ function populateContainerSelects() {
 
 
 /* =========================
-   NEW PLAN
+   NEW PLAN MODAL
 ========================= */
 
 newPlanBtn.addEventListener(
@@ -492,6 +692,12 @@ newPlanBtn.addEventListener(
     newPlanModal.classList.remove(
       'hidden'
     );
+
+    document
+      .getElementById(
+        'buyerName'
+      )
+      .focus();
 
   }
 );
@@ -535,17 +741,24 @@ function closeNewPlanModal() {
 }
 
 
+/* =========================
+   CREATE PLAN
+========================= */
+
 newPlanForm.addEventListener(
   'submit',
   async event => {
 
     event.preventDefault();
 
+
     createPlanBtn.disabled =
       true;
 
+
     createPlanBtn.textContent =
       'Creating...';
+
 
     try {
 
@@ -554,24 +767,32 @@ newPlanForm.addEventListener(
           newPlanForm
         );
 
+
       const payload = {
+
         action:
           'createPlan'
+
       };
+
 
       formData.forEach(
         (value, key) => {
 
           payload[key] =
-            String(value).trim();
+            String(
+              value
+            ).trim();
 
         }
       );
+
 
       const result =
         await apiPost(
           payload
         );
+
 
       if (!result.ok) {
 
@@ -582,9 +803,12 @@ newPlanForm.addEventListener(
 
       }
 
+
       closeNewPlanModal();
 
+
       await loadPlans();
+
 
       await openPlan(
         result.planId
@@ -602,6 +826,7 @@ newPlanForm.addEventListener(
       createPlanBtn.disabled =
         false;
 
+
       createPlanBtn.textContent =
         'Create Stuffing Plan';
 
@@ -615,18 +840,23 @@ newPlanForm.addEventListener(
    OPEN PLAN
 ========================= */
 
-async function openPlan(planId) {
+async function openPlan(
+  planId
+) {
 
   dashboardView.classList.add(
     'hidden'
   );
 
+
   planView.classList.remove(
     'hidden'
   );
 
+
   planTitle.textContent =
     'Loading plan...';
+
 
   try {
 
@@ -634,34 +864,45 @@ async function openPlan(planId) {
       await apiGet(
         'getPlan',
         {
+
           planId:
             planId
+
         }
       );
+
 
     if (!data.ok) {
 
       throw new Error(
-        data.message
+        data.message ||
+        'Unable to load plan.'
       );
 
     }
 
+
     currentPlan =
       data.plan;
+
 
     currentItems =
       data.items || [];
 
+
     populatePlanForm();
+
 
     renderSelectedContainer();
 
+
     renderCargo();
+
 
     calculateCargoTotals(
       false
     );
+
 
   } catch (error) {
 
@@ -669,6 +910,7 @@ async function openPlan(planId) {
       'Unable to open plan.\n\n' +
       error.message
     );
+
 
     showDashboard();
 
@@ -683,12 +925,16 @@ function showDashboard() {
     'hidden'
   );
 
+
   dashboardView.classList.remove(
     'hidden'
   );
 
+
   currentPlan = null;
+
   currentItems = [];
+
 
   loadPlans();
 
@@ -702,7 +948,7 @@ backBtn.addEventListener(
 
 
 /* =========================
-   PLAN FORM
+   POPULATE PLAN
 ========================= */
 
 function populatePlanForm() {
@@ -710,8 +956,10 @@ function populatePlanForm() {
   const plan =
     currentPlan;
 
+
   planTitle.textContent =
     plan.Plan_ID;
+
 
   planStatusText.textContent =
     `${plan.Status || 'Draft'} · ${
@@ -719,40 +967,62 @@ function populatePlanForm() {
       'Buyer not entered'
     }`;
 
+
   setField(
     'editBuyerName',
     plan.Buyer_Name
   );
+
 
   setField(
     'editInvoiceRef',
     plan.PO_Invoice_Ref
   );
 
+
   setField(
     'editContainer',
     plan.Container_Type
   );
+
+
+  setField(
+    'editDimensionUnit',
+    plan.Dimension_Unit ||
+    'mm'
+  );
+
+
+  setField(
+    'editWeightUnit',
+    plan.Weight_Unit ||
+    'kg'
+  );
+
 
   setField(
     'editContainerNumber',
     plan.Container_Number
   );
 
+
   setField(
     'editPortLoading',
     plan.Port_of_Loading
   );
+
 
   setField(
     'editPortDischarge',
     plan.Port_of_Discharge
   );
 
+
   setField(
     'editNotes',
     plan.Notes
   );
+
 
   setField(
     'editLoadingDate',
@@ -761,8 +1031,15 @@ function populatePlanForm() {
     )
   );
 
+
+  updateUnitUI();
+
 }
 
+
+/* =========================
+   PLAN AUTOSAVE
+========================= */
 
 planEditForm.addEventListener(
   'input',
@@ -776,7 +1053,15 @@ planEditForm.addEventListener(
 
     scheduleAutosave();
 
+
+    updateUnitUI();
+
+
     renderSelectedContainer();
+
+
+    renderCargo();
+
 
     calculateCargoTotals(
       true
@@ -792,15 +1077,19 @@ function scheduleAutosave() {
     return;
   }
 
+
   saveStatus.textContent =
     'Unsaved changes...';
+
 
   saveStatus.style.color =
     '#8a6513';
 
+
   clearTimeout(
     autosaveTimer
   );
+
 
   autosaveTimer =
     setTimeout(
@@ -817,11 +1106,14 @@ async function autosavePlan() {
     return;
   }
 
+
   saveStatus.textContent =
     'Saving...';
 
+
   saveStatus.style.color =
     '#667085';
+
 
   try {
 
@@ -830,40 +1122,51 @@ async function autosavePlan() {
         planEditForm
       );
 
+
     const payload = {
+
       action:
         'updatePlan',
 
       Plan_ID:
         currentPlan.Plan_ID
+
     };
+
 
     formData.forEach(
       (value, key) => {
 
         payload[key] =
-          String(value).trim();
+          String(
+            value
+          ).trim();
 
       }
     );
+
 
     const result =
       await apiPost(
         payload
       );
 
+
     if (!result.ok) {
 
       throw new Error(
-        result.message
+        result.message ||
+        'Save failed.'
       );
 
     }
+
 
     Object.assign(
       currentPlan,
       payload
     );
+
 
     planStatusText.textContent =
       `${currentPlan.Status || 'Draft'} · ${
@@ -871,19 +1174,28 @@ async function autosavePlan() {
         'Buyer not entered'
       }`;
 
+
     saveStatus.textContent =
       '✓ Saved';
 
+
     saveStatus.style.color =
       '#188754';
+
 
   } catch (error) {
 
     saveStatus.textContent =
       'Save failed';
 
+
     saveStatus.style.color =
       '#b42318';
+
+
+    console.error(
+      error
+    );
 
   }
 
@@ -899,13 +1211,19 @@ function renderSelectedContainer() {
   const container =
     getSelectedContainer();
 
+
   if (!container) {
 
     selectedContainerInfo.innerHTML =
-      '<p class="muted">Select a container.</p>';
+      `
+      <p class="muted">
+        Select a container.
+      </p>
+      `;
 
     return;
   }
+
 
   selectedContainerInfo.innerHTML =
     `
@@ -917,9 +1235,11 @@ function renderSelectedContainer() {
       </div>
 
       <div class="summary-value">
+
         ${escapeHtml(
           container.Container_Name
         )}
+
       </div>
 
     </div>
@@ -933,23 +1253,23 @@ function renderSelectedContainer() {
 
       <div class="summary-value">
 
-        ${formatNumber(
+        ${formatDimension(
           container.Internal_Length_mm
         )}
 
         ×
 
-        ${formatNumber(
+        ${formatDimension(
           container.Internal_Width_mm
         )}
 
         ×
 
-        ${formatNumber(
+        ${formatDimension(
           container.Internal_Height_mm
         )}
 
-        mm
+        ${getDimensionLabel()}
 
       </div>
 
@@ -964,17 +1284,17 @@ function renderSelectedContainer() {
 
       <div class="summary-value">
 
-        ${formatNumber(
+        ${formatDimension(
           container.Door_Width_mm
         )}
 
         ×
 
-        ${formatNumber(
+        ${formatDimension(
           container.Door_Height_mm
         )}
 
-        mm
+        ${getDimensionLabel()}
 
       </div>
 
@@ -989,11 +1309,14 @@ function renderSelectedContainer() {
 
       <div class="summary-value">
 
-        ${formatNumber(
-          container.Max_Payload_Kg
+        ${formatDecimal(
+          weightFromKG(
+            container.Max_Payload_Kg
+          ),
+          1
         )}
 
-        kg
+        ${getWeightLabel()}
 
       </div>
 
@@ -1047,37 +1370,53 @@ function openNewCargo() {
 
   cargoForm.reset();
 
-  cargoItemId.value = '';
+
+  cargoItemId.value =
+    '';
+
 
   document
     .getElementById(
       'cargoThickness'
     )
-    .value = 0;
+    .value =
+      0;
+
 
   document
     .getElementById(
       'cargoMaxLayers'
     )
-    .value = 0;
+    .value =
+      0;
+
 
   document
     .getElementById(
       'cargoRotate'
     )
-    .checked = true;
+    .checked =
+      true;
+
 
   document
     .getElementById(
       'cargoStackable'
     )
-    .checked = true;
+    .checked =
+      true;
+
 
   cargoModalTitle.textContent =
     'Add Cargo';
 
+
   saveCargoBtn.textContent =
     'Add Cargo';
+
+
+  updateUnitUI();
+
 
   cargoModal.classList.remove(
     'hidden'
@@ -1105,20 +1444,25 @@ cargoForm.addEventListener(
 
     event.preventDefault();
 
+
     if (!currentPlan) {
       return;
     }
 
+
+    const editingId =
+      cargoItemId.value;
+
+
     saveCargoBtn.disabled =
       true;
+
 
     saveCargoBtn.textContent =
       'Saving...';
 
-    try {
 
-      const editingId =
-        cargoItemId.value;
+    try {
 
       const payload = {
 
@@ -1127,8 +1471,10 @@ cargoForm.addEventListener(
             ? 'updateItem'
             : 'addItem',
 
+
         Plan_ID:
           currentPlan.Plan_ID,
+
 
         Product_Name:
           document
@@ -1138,12 +1484,14 @@ cargoForm.addEventListener(
             .value
             .trim(),
 
+
         Packing_Type:
           document
             .getElementById(
               'cargoPackingType'
             )
             .value,
+
 
         Quantity:
           Number(
@@ -1154,8 +1502,9 @@ cargoForm.addEventListener(
               .value
           ),
 
+
         Length_mm:
-          Number(
+          dimensionToMM(
             document
               .getElementById(
                 'cargoLength'
@@ -1163,8 +1512,9 @@ cargoForm.addEventListener(
               .value
           ),
 
+
         Width_mm:
-          Number(
+          dimensionToMM(
             document
               .getElementById(
                 'cargoWidth'
@@ -1172,8 +1522,9 @@ cargoForm.addEventListener(
               .value
           ),
 
+
         Height_mm:
-          Number(
+          dimensionToMM(
             document
               .getElementById(
                 'cargoHeight'
@@ -1181,17 +1532,20 @@ cargoForm.addEventListener(
               .value
           ),
 
+
         Box_Thickness_mm:
-          Number(
+          dimensionToMM(
             document
               .getElementById(
                 'cargoThickness'
               )
-              .value || 0
+              .value ||
+            0
           ),
 
+
         Gross_Weight_Kg:
-          Number(
+          weightToKG(
             document
               .getElementById(
                 'cargoWeight'
@@ -1199,14 +1553,17 @@ cargoForm.addEventListener(
               .value
           ),
 
+
         Max_Layers:
           Number(
             document
               .getElementById(
                 'cargoMaxLayers'
               )
-              .value || 0
+              .value ||
+            0
           ),
+
 
         Rotate_Horizontal:
           document
@@ -1215,6 +1572,7 @@ cargoForm.addEventListener(
             )
             .checked,
 
+
         Turn_Sideways:
           document
             .getElementById(
@@ -1222,12 +1580,14 @@ cargoForm.addEventListener(
             )
             .checked,
 
+
         Turn_Upside_Down:
           document
             .getElementById(
               'cargoUpside'
             )
             .checked,
+
 
         Stackable:
           document
@@ -1244,12 +1604,14 @@ cargoForm.addEventListener(
         payload.Item_ID =
           editingId;
 
+
         const existing =
           currentItems.find(
             item =>
               item.Item_ID ===
               editingId
           );
+
 
         payload.Colour =
           existing?.Colour ||
@@ -1259,6 +1621,7 @@ cargoForm.addEventListener(
 
         payload.Colour =
           chooseCargoColour();
+
 
         payload.Loading_Order =
           currentItems.length + 1;
@@ -1271,19 +1634,24 @@ cargoForm.addEventListener(
           payload
         );
 
+
       if (!result.ok) {
 
         throw new Error(
-          result.message
+          result.message ||
+          'Unable to save cargo.'
         );
 
       }
 
+
       closeCargoModal();
+
 
       await refreshCurrentPlan();
 
-    } catch (error) {
+
+  } catch (error) {
 
       alert(
         'Unable to save cargo.\n\n' +
@@ -1295,8 +1663,9 @@ cargoForm.addEventListener(
       saveCargoBtn.disabled =
         false;
 
+
       saveCargoBtn.textContent =
-        cargoItemId.value
+        editingId
           ? 'Save Changes'
           : 'Add Cargo';
 
@@ -1307,7 +1676,7 @@ cargoForm.addEventListener(
 
 
 /* =========================
-   REFRESH PLAN
+   REFRESH CURRENT PLAN
 ========================= */
 
 async function refreshCurrentPlan() {
@@ -1316,26 +1685,40 @@ async function refreshCurrentPlan() {
     await apiGet(
       'getPlan',
       {
+
         planId:
           currentPlan.Plan_ID
+
       }
     );
+
 
   if (!data.ok) {
 
     throw new Error(
-      data.message
+      data.message ||
+      'Unable to refresh plan.'
     );
 
   }
 
+
   currentPlan =
     data.plan;
+
 
   currentItems =
     data.items || [];
 
+
+  populatePlanForm();
+
+
+  renderSelectedContainer();
+
+
   renderCargo();
+
 
   await calculateCargoTotals(
     true
@@ -1362,153 +1745,194 @@ function renderCargo() {
     return;
   }
 
-  cargoList.innerHTML = '';
 
-  currentItems.forEach(item => {
-
-    const totalItemWeight =
-      Number(
-        item.Gross_Weight_Kg || 0
-      ) *
-      Number(
-        item.Quantity || 0
-      );
-
-    const itemCBM =
-      calculateItemCBM(
-        item
-      );
-
-    const card =
-      document.createElement(
-        'div'
-      );
-
-    card.className =
-      'cargo-card';
-
-    card.innerHTML =
-      `
-
-      <div
-        class="cargo-colour"
-        style="
-          background:
-          ${escapeHtml(
-            item.Colour ||
-            '#64748B'
-          )}
-        "
-      ></div>
+  cargoList.innerHTML =
+    '';
 
 
-      <div>
+  currentItems.forEach(
+    item => {
 
-        <div class="cargo-name">
-          ${escapeHtml(
-            item.Product_Name
-          )}
-        </div>
+      const totalItemWeightKG =
+        Number(
+          item.Gross_Weight_Kg ||
+          0
+        ) *
+        Number(
+          item.Quantity ||
+          0
+        );
 
-        <div class="cargo-meta">
 
-          <span>
-            ${formatNumber(
-              item.Quantity
-            )}
+      const itemCBM =
+        calculateItemCBM(
+          item
+        );
+
+
+      const card =
+        document.createElement(
+          'div'
+        );
+
+
+      card.className =
+        'cargo-card';
+
+
+      card.innerHTML =
+        `
+
+        <div
+          class="cargo-colour"
+          style="
+            background:
             ${escapeHtml(
-              item.Packing_Type
+              item.Colour ||
+              '#64748B'
             )}
-          </span>
+          "
+        ></div>
 
-          <span>
-            ${formatNumber(
-              item.Length_mm
-            )}
-            ×
-            ${formatNumber(
-              item.Width_mm
-            )}
-            ×
-            ${formatNumber(
-              item.Height_mm
-            )}
-            mm
-          </span>
 
-          <span>
-            ${formatDecimal(
-              totalItemWeight,
-              2
-            )}
-            kg
-          </span>
+        <div>
 
-          <span>
-            ${formatDecimal(
-              itemCBM,
-              3
+          <div class="cargo-name">
+
+            ${escapeHtml(
+              item.Product_Name
             )}
-            CBM
-          </span>
+
+          </div>
+
+
+          <div class="cargo-meta">
+
+            <span>
+
+              ${formatNumber(
+                item.Quantity
+              )}
+
+              ${escapeHtml(
+                item.Packing_Type
+              )}
+
+            </span>
+
+
+            <span>
+
+              ${formatDimension(
+                item.Length_mm
+              )}
+
+              ×
+
+              ${formatDimension(
+                item.Width_mm
+              )}
+
+              ×
+
+              ${formatDimension(
+                item.Height_mm
+              )}
+
+              ${getDimensionLabel()}
+
+            </span>
+
+
+            <span>
+
+              ${formatDecimal(
+                weightFromKG(
+                  totalItemWeightKG
+                ),
+                2
+              )}
+
+              ${getWeightLabel()}
+
+            </span>
+
+
+            <span>
+
+              ${formatDecimal(
+                itemCBM,
+                3
+              )}
+
+              CBM
+
+            </span>
+
+          </div>
 
         </div>
 
-      </div>
+
+        <div class="cargo-actions">
+
+          <button
+            type="button"
+            class="small-btn edit-btn"
+          >
+            Edit
+          </button>
+
+          <button
+            type="button"
+            class="small-btn danger delete-btn"
+          >
+            Remove
+          </button>
+
+        </div>
+
+        `;
 
 
-      <div class="cargo-actions">
-
-        <button
-          type="button"
-          class="small-btn edit-btn"
-        >
-          Edit
-        </button>
-
-        <button
-          type="button"
-          class="small-btn danger delete-btn"
-        >
-          Remove
-        </button>
-
-      </div>
-
-      `;
-
-
-    card
-      .querySelector(
-        '.edit-btn'
-      )
-      .addEventListener(
-        'click',
-        () =>
-          editCargo(
-            item.Item_ID
-          )
-      );
-
-
-    card
-      .querySelector(
-        '.delete-btn'
-      )
-      .addEventListener(
-        'click',
-        () =>
-          deleteCargo(
-            item.Item_ID
-          )
-      );
-
-
-    cargoList.appendChild(
       card
-    );
+        .querySelector(
+          '.edit-btn'
+        )
+        .addEventListener(
+          'click',
+          () => {
 
-  });
+            editCargo(
+              item.Item_ID
+            );
+
+          }
+        );
+
+
+      card
+        .querySelector(
+          '.delete-btn'
+        )
+        .addEventListener(
+          'click',
+          () => {
+
+            deleteCargo(
+              item.Item_ID
+            );
+
+          }
+        );
+
+
+      cargoList.appendChild(
+        card
+      );
+
+    }
+  );
 
 }
 
@@ -1517,7 +1941,9 @@ function renderCargo() {
    EDIT CARGO
 ========================= */
 
-function editCargo(itemId) {
+function editCargo(
+  itemId
+) {
 
   const item =
     currentItems.find(
@@ -1526,54 +1952,76 @@ function editCargo(itemId) {
         itemId
     );
 
+
   if (!item) {
     return;
   }
 
+
   cargoForm.reset();
+
 
   cargoItemId.value =
     item.Item_ID;
+
 
   setValue(
     'cargoProduct',
     item.Product_Name
   );
 
+
   setValue(
     'cargoPackingType',
     item.Packing_Type
   );
+
 
   setValue(
     'cargoQuantity',
     item.Quantity
   );
 
+
   setValue(
     'cargoLength',
-    item.Length_mm
+    dimensionFromMM(
+      item.Length_mm
+    )
   );
+
 
   setValue(
     'cargoWidth',
-    item.Width_mm
+    dimensionFromMM(
+      item.Width_mm
+    )
   );
+
 
   setValue(
     'cargoHeight',
-    item.Height_mm
+    dimensionFromMM(
+      item.Height_mm
+    )
   );
+
 
   setValue(
     'cargoThickness',
-    item.Box_Thickness_mm
+    dimensionFromMM(
+      item.Box_Thickness_mm
+    )
   );
+
 
   setValue(
     'cargoWeight',
-    item.Gross_Weight_Kg
+    weightFromKG(
+      item.Gross_Weight_Kg
+    )
   );
+
 
   setValue(
     'cargoMaxLayers',
@@ -1624,8 +2072,13 @@ function editCargo(itemId) {
   cargoModalTitle.textContent =
     'Edit Cargo';
 
+
   saveCargoBtn.textContent =
     'Save Changes';
+
+
+  updateUnitUI();
+
 
   cargoModal.classList.remove(
     'hidden'
@@ -1638,7 +2091,9 @@ function editCargo(itemId) {
    DELETE CARGO
 ========================= */
 
-async function deleteCargo(itemId) {
+async function deleteCargo(
+  itemId
+) {
 
   const item =
     currentItems.find(
@@ -1647,39 +2102,51 @@ async function deleteCargo(itemId) {
         itemId
     );
 
+
   if (!item) {
     return;
   }
+
 
   const confirmed =
     confirm(
       `Remove "${item.Product_Name}" from this stuffing plan?`
     );
 
+
   if (!confirmed) {
     return;
   }
 
+
   try {
 
     const result =
-      await apiPost({
-        action:
-          'deleteItem',
+      await apiPost(
+        {
 
-        Item_ID:
-          itemId
-      });
+          action:
+            'deleteItem',
+
+          Item_ID:
+            itemId
+
+        }
+      );
+
 
     if (!result.ok) {
 
       throw new Error(
-        result.message
+        result.message ||
+        'Unable to remove cargo.'
       );
 
     }
 
+
     await refreshCurrentPlan();
+
 
   } catch (error) {
 
@@ -1702,31 +2169,41 @@ async function calculateCargoTotals(
 ) {
 
   let packages = 0;
-  let weight = 0;
+
+  let weightKG = 0;
+
   let cbm = 0;
 
 
-  currentItems.forEach(item => {
+  currentItems.forEach(
+    item => {
 
-    const qty =
-      Number(
-        item.Quantity || 0
-      );
+      const qty =
+        Number(
+          item.Quantity ||
+          0
+        );
 
-    packages +=
-      qty;
 
-    weight +=
-      Number(
-        item.Gross_Weight_Kg || 0
-      ) * qty;
+      packages +=
+        qty;
 
-    cbm +=
-      calculateItemCBM(
-        item
-      );
 
-  });
+      weightKG +=
+        Number(
+          item.Gross_Weight_Kg ||
+          0
+        ) *
+        qty;
+
+
+      cbm +=
+        calculateItemCBM(
+          item
+        );
+
+    }
+  );
 
 
   const container =
@@ -1734,7 +2211,9 @@ async function calculateCargoTotals(
 
 
   let containerCBM = 0;
+
   let volumePct = 0;
+
   let payloadPct = 0;
 
 
@@ -1757,7 +2236,10 @@ async function calculateCargoTotals(
       1000000000;
 
 
-    if (containerCBM > 0) {
+    if (
+      containerCBM >
+      0
+    ) {
 
       volumePct =
         cbm /
@@ -1769,14 +2251,18 @@ async function calculateCargoTotals(
 
     const maxPayload =
       Number(
-        container.Max_Payload_Kg || 0
+        container.Max_Payload_Kg ||
+        0
       );
 
 
-    if (maxPayload > 0) {
+    if (
+      maxPayload >
+      0
+    ) {
 
       payloadPct =
-        weight /
+        weightKG /
         maxPayload *
         100;
 
@@ -1793,9 +2279,11 @@ async function calculateCargoTotals(
 
   totalWeight.textContent =
     `${formatDecimal(
-      weight,
+      weightFromKG(
+        weightKG
+      ),
       2
-    )} kg`;
+    )} ${getWeightLabel()}`;
 
 
   totalCBM.textContent =
@@ -1826,38 +2314,49 @@ async function calculateCargoTotals(
 
     try {
 
-      await apiPost({
+      await apiPost(
+        {
 
-        action:
-          'updatePlan',
+          action:
+            'updatePlan',
 
-        Plan_ID:
-          currentPlan.Plan_ID,
+          Plan_ID:
+            currentPlan.Plan_ID,
 
-        Total_Packages:
-          packages,
+          Total_Packages:
+            packages,
 
-        Total_Gross_Weight_Kg:
-          Number(
-            weight.toFixed(2)
-          ),
+          Total_Gross_Weight_Kg:
+            Number(
+              weightKG.toFixed(
+                2
+              )
+            ),
 
-        Cargo_Volume_CBM:
-          Number(
-            cbm.toFixed(3)
-          ),
+          Cargo_Volume_CBM:
+            Number(
+              cbm.toFixed(
+                3
+              )
+            ),
 
-        Container_Volume_Used_Pct:
-          Number(
-            volumePct.toFixed(2)
-          ),
+          Container_Volume_Used_Pct:
+            Number(
+              volumePct.toFixed(
+                2
+              )
+            ),
 
-        Payload_Used_Pct:
-          Number(
-            payloadPct.toFixed(2)
-          )
+          Payload_Used_Pct:
+            Number(
+              payloadPct.toFixed(
+                2
+              )
+            )
 
-      });
+        }
+      );
+
 
     } catch (error) {
 
@@ -1873,23 +2372,29 @@ async function calculateCargoTotals(
 }
 
 
-function calculateItemCBM(item) {
+function calculateItemCBM(
+  item
+) {
 
   return (
     Number(
-      item.Length_mm || 0
+      item.Length_mm ||
+      0
     ) *
 
     Number(
-      item.Width_mm || 0
+      item.Width_mm ||
+      0
     ) *
 
     Number(
-      item.Height_mm || 0
+      item.Height_mm ||
+      0
     ) *
 
     Number(
-      item.Quantity || 0
+      item.Quantity ||
+      0
     )
   ) /
   1000000000;
@@ -1898,7 +2403,7 @@ function calculateItemCBM(item) {
 
 
 /* =========================
-   COLOUR
+   COLOURS
 ========================= */
 
 function chooseCargoColour() {
@@ -1933,6 +2438,288 @@ function chooseCargoColour() {
 
 
 /* =========================
+   UNITS
+========================= */
+
+function getDimensionUnit() {
+
+  const unit =
+    editDimensionUnit?.value ||
+    currentPlan?.Dimension_Unit ||
+    'mm';
+
+
+  return DIMENSION_UNITS[
+    unit
+  ]
+    ? unit
+    : 'mm';
+
+}
+
+
+function getWeightUnit() {
+
+  const unit =
+    editWeightUnit?.value ||
+    currentPlan?.Weight_Unit ||
+    'kg';
+
+
+  return WEIGHT_UNITS[
+    unit
+  ]
+    ? unit
+    : 'kg';
+
+}
+
+
+function getDimensionLabel() {
+
+  return DIMENSION_UNITS[
+    getDimensionUnit()
+  ].label;
+
+}
+
+
+function getWeightLabel() {
+
+  return WEIGHT_UNITS[
+    getWeightUnit()
+  ].label;
+
+}
+
+
+function dimensionToMM(
+  value
+) {
+
+  const number =
+    Number(
+      value ||
+      0
+    );
+
+
+  const unit =
+    DIMENSION_UNITS[
+      getDimensionUnit()
+    ];
+
+
+  return Number(
+    (
+      number *
+      unit.toMM
+    ).toFixed(
+      3
+    )
+  );
+
+}
+
+
+function dimensionFromMM(
+  value
+) {
+
+  const number =
+    Number(
+      value ||
+      0
+    );
+
+
+  const unit =
+    DIMENSION_UNITS[
+      getDimensionUnit()
+    ];
+
+
+  return Number(
+    (
+      number /
+      unit.toMM
+    ).toFixed(
+      3
+    )
+  );
+
+}
+
+
+function weightToKG(
+  value
+) {
+
+  const number =
+    Number(
+      value ||
+      0
+    );
+
+
+  const unit =
+    WEIGHT_UNITS[
+      getWeightUnit()
+    ];
+
+
+  return Number(
+    (
+      number *
+      unit.toKG
+    ).toFixed(
+      4
+    )
+  );
+
+}
+
+
+function weightFromKG(
+  value
+) {
+
+  const number =
+    Number(
+      value ||
+      0
+    );
+
+
+  const unit =
+    WEIGHT_UNITS[
+      getWeightUnit()
+    ];
+
+
+  return Number(
+    (
+      number /
+      unit.toKG
+    ).toFixed(
+      3
+    )
+  );
+
+}
+
+
+function formatDimension(
+  value
+) {
+
+  const converted =
+    dimensionFromMM(
+      value
+    );
+
+
+  const unit =
+    getDimensionUnit();
+
+
+  let digits = 0;
+
+
+  if (
+    unit ===
+    'cm'
+  ) {
+
+    digits = 1;
+
+  }
+
+
+  if (
+    unit ===
+      'in' ||
+    unit ===
+      'ft'
+  ) {
+
+    digits = 2;
+
+  }
+
+
+  return Number(
+    converted
+  )
+    .toLocaleString(
+      'en-IN',
+      {
+
+        minimumFractionDigits:
+          digits,
+
+        maximumFractionDigits:
+          digits
+
+      }
+    );
+
+}
+
+
+function updateUnitUI() {
+
+  const dimensionLabel =
+    getDimensionLabel();
+
+
+  const weightLabel =
+    getWeightLabel();
+
+
+  document
+    .getElementById(
+      'cargoLengthLabel'
+    )
+    .textContent =
+      `Length (${dimensionLabel})`;
+
+
+  document
+    .getElementById(
+      'cargoWidthLabel'
+    )
+    .textContent =
+      `Width (${dimensionLabel})`;
+
+
+  document
+    .getElementById(
+      'cargoHeightLabel'
+    )
+    .textContent =
+      `Height (${dimensionLabel})`;
+
+
+  document
+    .getElementById(
+      'cargoThicknessLabel'
+    )
+    .textContent =
+      `Box Thickness (${dimensionLabel})`;
+
+
+  document
+    .getElementById(
+      'cargoWeightLabel'
+    )
+    .textContent =
+      `Gross Weight / Package (${weightLabel})`;
+
+}
+
+
+/* =========================
    HELPERS
 ========================= */
 
@@ -1947,71 +2734,99 @@ function getSelectedContainer() {
 }
 
 
-function getContainerName(id) {
+function getContainerName(
+  id
+) {
 
   const container =
     containers.find(
       item =>
-        item.Container_ID === id
+        item.Container_ID ===
+        id
     );
+
 
   return container
     ? container.Container_Name
-    : id || 'No container';
+    : id ||
+      'No container';
 
 }
 
 
-function setField(id, value) {
+function setField(
+  id,
+  value
+) {
 
   const element =
     document.getElementById(
       id
     );
 
+
   if (!element) {
     return;
   }
 
+
   element.value =
-    value || '';
+    value ||
+    '';
 
 }
 
 
-function setValue(id, value) {
+function setValue(
+  id,
+  value
+) {
 
   const element =
     document.getElementById(
       id
     );
 
+
   if (!element) {
     return;
   }
 
+
   element.value =
-    value ?? '';
+    value ??
+    '';
 
 }
 
 
-function normaliseDate(value) {
+function normaliseDate(
+  value
+) {
 
   if (!value) {
     return '';
   }
 
-  return String(value)
-    .substring(0, 10);
+
+  return String(
+    value
+  )
+    .substring(
+      0,
+      10
+    );
 
 }
 
 
-function formatNumber(value) {
+function formatNumber(
+  value
+) {
 
   return Number(
-    value || 0
+    value ||
+    0
   )
     .toLocaleString(
       'en-IN'
@@ -2026,40 +2841,51 @@ function formatDecimal(
 ) {
 
   return Number(
-    value || 0
+    value ||
+    0
   )
     .toLocaleString(
       'en-IN',
       {
+
         minimumFractionDigits:
           digits,
 
         maximumFractionDigits:
           digits
+
       }
     );
 
 }
 
 
-function toBoolean(value) {
+function toBoolean(
+  value
+) {
 
   return (
     value === true ||
-    String(value)
-      .toUpperCase() ===
+    String(
+      value
+    ).toUpperCase() ===
       'TRUE' ||
-    String(value) ===
+    String(
+      value
+    ) ===
       '1'
   );
 
 }
 
 
-function escapeHtml(value) {
+function escapeHtml(
+  value
+) {
 
   return String(
-    value ?? ''
+    value ??
+    ''
   )
 
     .replace(
