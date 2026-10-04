@@ -101,6 +101,10 @@ let manualSelectedItemId = '';
 let manualGridVisible = false;
 const ONE_FOOT_MM = 304.8;
 
+/* Intuitive quantity controls — local-first, then debounced backend save. */
+const quantitySaveTimers = new Map();
+const quantitySaveVersions = new Map();
+
 let actionProgressTimer = null;
 let actionProgressStartedAt = 0;
 
@@ -1984,6 +1988,140 @@ function orientationButtonLabel(type) {
 
 
 /* =========================================================
+   INTUITIVE QUANTITY CONTROLS
+========================================================= */
+
+function clampCargoQuantity(value) {
+  const number = Math.round(Number(value || 0));
+  return Math.max(0, Math.min(50000, Number.isFinite(number) ? number : 0));
+}
+
+function queueCargoQuantitySave(itemId, quantity) {
+  const item = items.find(cargo => cargo.Item_ID === itemId);
+  if (!item) return;
+
+  const nextVersion = (quantitySaveVersions.get(itemId) || 0) + 1;
+  quantitySaveVersions.set(itemId, nextVersion);
+
+  clearTimeout(quantitySaveTimers.get(itemId));
+  setAutosaveState('saving');
+
+  const timer = setTimeout(async () => {
+    try {
+      const result = await apiPost({
+        action: 'updateItem',
+        sessionToken,
+        Item_ID: itemId,
+        Quantity: clampCargoQuantity(quantity)
+      });
+
+      if (!result.ok) throw new Error(result.message || 'Unable to save quantity.');
+      if (quantitySaveVersions.get(itemId) === nextVersion) setAutosaveState('saved');
+    } catch (error) {
+      if (quantitySaveVersions.get(itemId) === nextVersion) {
+        setAutosaveState('error');
+        showToast(error.message || 'Unable to save quantity.', 'error');
+        try { await reloadPlan(); } catch (reloadError) { console.warn(reloadError); }
+      }
+    }
+  }, 420);
+
+  quantitySaveTimers.set(itemId, timer);
+}
+
+function setCargoQuantity(itemId, quantity, options = {}) {
+  const item = items.find(cargo => cargo.Item_ID === itemId);
+  if (!item) return;
+
+  const next = clampCargoQuantity(quantity);
+  const previous = clampCargoQuantity(item.Quantity);
+  if (next === previous) return;
+
+  item.Quantity = next;
+  refreshEverything();
+  if (options.save !== false) queueCargoQuantitySave(itemId, next);
+  if (options.toast) showToast(options.toast);
+}
+
+function packingKeepsExistingCargo(candidateResult, baselineResult, itemId) {
+  const baselineRows = new Map(
+    (baselineResult?.results || []).map(row => [row.item.Item_ID, Number(row.fitted || 0)])
+  );
+
+  return (candidateResult?.results || []).every(row => {
+    if (row.item.Item_ID === itemId) return true;
+    return Number(row.fitted || 0) >= Number(baselineRows.get(row.item.Item_ID) || 0);
+  });
+}
+
+function findMaximumSafeQuantity(itemId) {
+  const item = items.find(cargo => cargo.Item_ID === itemId);
+  const container = selectedContainer();
+  if (!item || !container) return clampCargoQuantity(item?.Quantity || 0);
+
+  const originalQuantity = clampCargoQuantity(item.Quantity);
+  const baselineResult = packingResult || calculatePacking();
+  const baselineRow = baselineResult?.results?.find(row => row.item.Item_ID === itemId);
+  const baselineFitted = Number(baselineRow?.fitted || 0);
+
+  const packageWeight = Math.max(0, Number(item.Gross_Weight_Kg || 0));
+  const maxPayload = Math.max(0, Number(container.Max_Payload_Kg || 0));
+  const boxVolume = Math.max(1, Number(item.Length_mm || 0) * Number(item.Width_mm || 0) * Number(item.Height_mm || 0));
+  const containerVolume = Math.max(1, Number(container.Internal_Length_mm || 0) * Number(container.Internal_Width_mm || 0) * Number(container.Internal_Height_mm || 0));
+
+  const volumeCeiling = Math.ceil(containerVolume / boxVolume * 1.15);
+  const payloadCeiling = packageWeight > 0 && maxPayload > 0 ? Math.ceil(maxPayload / packageWeight) : 50000;
+  const absoluteCeiling = Math.max(originalQuantity, Math.min(50000, volumeCeiling, payloadCeiling));
+
+  const fitsCandidate = quantity => {
+    item.Quantity = quantity;
+    const candidate = calculatePacking();
+    const row = candidate?.results?.find(resultRow => resultRow.item.Item_ID === itemId);
+    return Number(row?.fitted || 0) >= quantity && packingKeepsExistingCargo(candidate, baselineResult, itemId);
+  };
+
+  if (!fitsCandidate(originalQuantity)) {
+    item.Quantity = originalQuantity;
+    return originalQuantity;
+  }
+
+  let low = Math.max(originalQuantity, baselineFitted);
+  let high = absoluteCeiling;
+
+  while (low < high) {
+    const mid = Math.floor((low + high + 1) / 2);
+    if (fitsCandidate(mid)) low = mid;
+    else high = mid - 1;
+  }
+
+  item.Quantity = originalQuantity;
+  return low;
+}
+
+async function fillAvailableCargo(itemId, button) {
+  const item = items.find(cargo => cargo.Item_ID === itemId);
+  if (!item) return;
+
+  const before = clampCargoQuantity(item.Quantity);
+
+  await withButtonLoader(button, 'Finding space…', async () => {
+    showViewerLoader('Finding the maximum safe quantity…');
+    await new Promise(resolve => requestAnimationFrame(() => resolve()));
+
+    const maximum = findMaximumSafeQuantity(itemId);
+    hideViewerLoader();
+
+    if (maximum <= before) {
+      showToast('No additional cartons can safely fit with the current cargo and rules.');
+      return;
+    }
+
+    setCargoQuantity(itemId, maximum);
+    showToast(`Added ${formatNumber(maximum - before)} carton${maximum - before === 1 ? '' : 's'} · ${formatNumber(maximum)} total.`);
+  });
+}
+
+/* =========================================================
    CARGO LIST
 ========================================================= */
 
@@ -2164,6 +2302,29 @@ function renderCargoList() {
         )} ${weightLabel()}
       </div>
 
+      <div class="quantity-control-card">
+        <div class="quantity-control-head">
+          <div>
+            <span class="quantity-kicker">CARTONS / PACKAGES</span>
+            <strong>Adjust quantity</strong>
+          </div>
+          <span class="quantity-loaded-note">${formatNumber(fitted)} loaded</span>
+        </div>
+
+        <div class="quantity-stepper-row">
+          <button class="quantity-step-btn quantity-minus" type="button" aria-label="Remove one carton" title="Remove one carton">−</button>
+          <input class="quantity-direct-input" type="number" min="0" max="50000" step="1" inputmode="numeric" value="${clampCargoQuantity(item.Quantity)}" aria-label="Requested quantity for ${escapeHtml(item.Product_Name)}">
+          <button class="quantity-step-btn quantity-plus" type="button" aria-label="Add one carton" title="Add one carton">+</button>
+          <button class="fill-available-btn" type="button" title="Add the maximum extra cartons that can safely fit without reducing other loaded cargo">Fill Available</button>
+        </div>
+
+        <div class="quantity-quick-row">
+          <button class="quantity-quick-btn quantity-minus-ten" type="button">−10</button>
+          <button class="quantity-quick-btn quantity-plus-ten" type="button">+10</button>
+          <span>${formatNumber(remaining)} remaining · ${formatDecimal(weightFromKG(Number(item.Gross_Weight_Kg || 0) * Number(item.Quantity || 0)), 2)} ${weightLabel()} requested</span>
+        </div>
+      </div>
+
       <div class="live-fit-strip ${remaining > 0 ? 'has-remaining' : ''}">
         <div>
           <span>LIVE FIT</span>
@@ -2307,7 +2468,7 @@ function renderCargoList() {
           <div>
             <div class="product-placement-title">Layout Mode</div>
             <div class="manual-layout-help">
-              Auto packs everything. Guided / Manual lets you reserve a 1 ft grid zone for this product.
+              Auto packs everything. Guided lets you choose an area. Manual gives precise control when you need it.
             </div>
           </div>
           ${
@@ -2343,7 +2504,16 @@ function renderCargoList() {
           </button>
         </div>
 
-        <div class="manual-zone-editor ${getProductRule(item).layoutMode === 'auto' ? 'hidden' : ''}">
+        <div class="manual-zone-quick ${getProductRule(item).layoutMode === 'auto' ? 'hidden' : ''}">
+          <button class="small-btn zone-pick-btn ${manualSelectedItemId === item.Item_ID ? 'active' : ''}" type="button">
+            ${manualSelectedItemId === item.Item_ID ? 'Tap the 1 ft Grid…' : 'Select Area on 1 ft Grid'}
+          </button>
+          <button class="small-btn zone-full-width-btn" type="button">Use Full Width</button>
+        </div>
+
+        <details class="manual-advanced-details ${getProductRule(item).layoutMode === 'auto' ? 'hidden' : ''}">
+          <summary>Advanced position, size & orientation</summary>
+        <div class="manual-zone-editor">
           <div class="zone-section-label">START CUBE · FEET FROM BACK / LEFT / FLOOR</div>
 
           <div class="zone-input-grid">
@@ -2413,8 +2583,11 @@ function renderCargoList() {
             Z${Number(getProductRule(item).zoneZFt || 0)}′
           </div>
         </div>
+        </details>
       </div>
 
+      <details class="advanced-placement-details">
+        <summary>Advanced placement strategy</summary>
       <div class="product-placement-box">
         <div class="product-placement-title">
           Placement Strategy
@@ -2516,6 +2689,7 @@ function renderCargoList() {
           )}
         </div>
       </div>
+      </details>
       `;
 
     card
@@ -2562,6 +2736,30 @@ function renderCargoList() {
             item.Item_ID
           )
       );
+
+    card.querySelector('.quantity-minus')?.addEventListener('click', () =>
+      setCargoQuantity(item.Item_ID, Number(item.Quantity || 0) - 1)
+    );
+
+    card.querySelector('.quantity-plus')?.addEventListener('click', () =>
+      setCargoQuantity(item.Item_ID, Number(item.Quantity || 0) + 1)
+    );
+
+    card.querySelector('.quantity-minus-ten')?.addEventListener('click', () =>
+      setCargoQuantity(item.Item_ID, Number(item.Quantity || 0) - 10)
+    );
+
+    card.querySelector('.quantity-plus-ten')?.addEventListener('click', () =>
+      setCargoQuantity(item.Item_ID, Number(item.Quantity || 0) + 10)
+    );
+
+    card.querySelector('.quantity-direct-input')?.addEventListener('change', event =>
+      setCargoQuantity(item.Item_ID, event.target.value)
+    );
+
+    card.querySelector('.fill-available-btn')?.addEventListener('click', event =>
+      fillAvailableCargo(item.Item_ID, event.currentTarget)
+    );
 
     card
       .querySelector('.default-btn')

@@ -2746,3 +2746,199 @@ body.is-busy {
   .action-progress { transition: none; }
   .action-spinner { animation-duration: 1.4s; }
 }
+
+/* =========================================================
+   INTUITIVE CARGO CONTROLS — V1
+========================================================= */
+.quantity-control-card {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #d9e3ee;
+  border-radius: 11px;
+  background: #f8fbff;
+}
+
+.quantity-control-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.quantity-control-head > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.quantity-kicker {
+  color: #748298;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.quantity-control-head strong {
+  color: #263a52;
+  font-size: 12px;
+}
+
+.quantity-loaded-note {
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: #eaf6ef;
+  color: #28704a;
+  font-size: 9px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.quantity-stepper-row {
+  display: grid;
+  grid-template-columns: 38px minmax(58px, 78px) 38px minmax(96px, 1fr);
+  gap: 5px;
+  align-items: stretch;
+}
+
+.quantity-step-btn,
+.quantity-quick-btn,
+.fill-available-btn {
+  border: 1px solid #cbd8e6;
+  border-radius: 8px;
+  background: #fff;
+  color: #29445f;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.quantity-step-btn {
+  min-height: 38px;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.quantity-step-btn:hover,
+.quantity-quick-btn:hover {
+  border-color: #8ca7c2;
+  background: #f2f7fc;
+}
+
+.quantity-direct-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  box-sizing: border-box;
+  border: 1px solid #b9cadc;
+  border-radius: 8px;
+  background: #fff;
+  color: #172b43;
+  text-align: center;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.fill-available-btn {
+  min-height: 38px;
+  padding: 6px 8px;
+  border-color: #7ea0c3;
+  background: #edf5fd;
+  color: #244f78;
+  font-size: 10px;
+}
+
+.fill-available-btn:hover {
+  background: #e1eefb;
+}
+
+.quantity-quick-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.quantity-quick-btn {
+  min-height: 27px;
+  padding: 3px 7px;
+  font-size: 9px;
+}
+
+.quantity-quick-row span {
+  min-width: 0;
+  margin-left: 2px;
+  color: #718095;
+  font-size: 9px;
+  line-height: 1.25;
+}
+
+.manual-zone-quick {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.manual-zone-quick .small-btn {
+  min-height: 36px;
+  border-radius: 8px;
+}
+
+.manual-zone-quick .zone-pick-btn {
+  border-color: #7d9bb9;
+  background: #eef5fc;
+  color: #294d70;
+}
+
+.manual-zone-quick .zone-pick-btn.active {
+  border-color: #2f6fea;
+  background: #e9f1ff;
+  color: #1758be;
+}
+
+.manual-advanced-details,
+.advanced-placement-details {
+  margin-top: 8px;
+  border-top: 1px dashed #d9e2ec;
+}
+
+.manual-advanced-details > summary,
+.advanced-placement-details > summary {
+  padding: 9px 2px 5px;
+  color: #607087;
+  font-size: 9px;
+  font-weight: 800;
+  cursor: pointer;
+  user-select: none;
+}
+
+.manual-advanced-details[open] > summary,
+.advanced-placement-details[open] > summary {
+  color: #2f587f;
+}
+
+.manual-advanced-details .manual-zone-editor {
+  margin-top: 2px;
+  padding-top: 2px;
+  border-top: 0;
+}
+
+.advanced-placement-details .product-placement-box {
+  margin-top: 2px;
+  padding-top: 6px;
+  border-top: 0;
+}
+
+@media (max-width: 520px) {
+  .quantity-stepper-row {
+    grid-template-columns: 40px minmax(64px, 1fr) 40px;
+  }
+  .fill-available-btn {
+    grid-column: 1 / -1;
+  }
+  .manual-zone-quick {
+    grid-template-columns: 1fr;
+  }
+}
