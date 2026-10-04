@@ -97,6 +97,72 @@ let showSceneDimensions = true;
 let showOccupancyMarkers = true;
 let highlightedItemId = '';
 
+let manualSelectedItemId = '';
+let manualGridVisible = false;
+const ONE_FOOT_MM = 304.8;
+
+let actionProgressTimer = null;
+let actionProgressStartedAt = 0;
+
+function actionLabelFromElement(el) {
+  if (!el) return 'Working…';
+  const text = (
+    el.dataset?.loadingLabel ||
+    el.getAttribute?.('aria-label') ||
+    el.title ||
+    el.textContent ||
+    ''
+  ).replace(/\s+/g, ' ').trim();
+  return text ? (text.length > 34 ? text.slice(0, 34) + '…' : text) : 'Working…';
+}
+
+function showActionLoader(title = 'Working…', detail = 'Updating container plan…') {
+  const box = document.getElementById('actionProgress');
+  if (!box) return;
+  clearTimeout(actionProgressTimer);
+  actionProgressStartedAt = performance.now();
+  const t = document.getElementById('actionProgressTitle');
+  const d = document.getElementById('actionProgressDetail');
+  if (t) t.textContent = title;
+  if (d) d.textContent = detail;
+  box.classList.add('show');
+  box.setAttribute('aria-hidden', 'false');
+}
+
+function hideActionLoader(minimumVisibleMs = 300) {
+  const box = document.getElementById('actionProgress');
+  if (!box) return;
+  clearTimeout(actionProgressTimer);
+  const wait = Math.max(0, minimumVisibleMs - (performance.now() - actionProgressStartedAt));
+  actionProgressTimer = setTimeout(() => {
+    box.classList.remove('show');
+    box.setAttribute('aria-hidden', 'true');
+  }, wait);
+}
+
+function completeActionLoaderSoon() {
+  requestAnimationFrame(() => requestAnimationFrame(() => hideActionLoader(320)));
+}
+
+/* Pointer-down lets the spinner paint before a heavier click calculation starts. */
+document.addEventListener('pointerdown', event => {
+  const el = event.target.closest(
+    'button, select, input[type="checkbox"], input[type="radio"], input[type="number"], input[type="color"]'
+  );
+  if (!el || el.disabled) return;
+  showActionLoader(actionLabelFromElement(el), 'Updating container plan…');
+  clearTimeout(actionProgressTimer);
+  actionProgressTimer = setTimeout(() => hideActionLoader(0), 2500);
+}, true);
+
+document.addEventListener('change', event => {
+  const el = event.target.closest('select, input');
+  if (!el) return;
+  showActionLoader('Applying change…', actionLabelFromElement(el));
+  completeActionLoaderSoon();
+}, true);
+
+
 
 let productPlacementRules = {};
 
@@ -1839,6 +1905,8 @@ function refreshEverything() {
     packingResult,
     totals
   );
+
+  completeActionLoaderSoon();
 }
 
 
@@ -2234,6 +2302,119 @@ function renderCargoList() {
         </strong>
       </div>
 
+      <div class="manual-layout-box">
+        <div class="manual-layout-head">
+          <div>
+            <div class="product-placement-title">Layout Mode</div>
+            <div class="manual-layout-help">
+              Auto packs everything. Guided / Manual lets you reserve a 1 ft grid zone for this product.
+            </div>
+          </div>
+          ${
+            getProductRule(item).layoutMode !== 'auto'
+              ? `<span class="manual-active-badge">1 FT GRID</span>`
+              : ''
+          }
+        </div>
+
+        <div class="layout-mode-tabs">
+          <button
+            class="layout-mode-btn ${getProductRule(item).layoutMode === 'auto' ? 'active' : ''}"
+            data-layout-mode="auto"
+            type="button"
+          >
+            Auto
+          </button>
+
+          <button
+            class="layout-mode-btn ${getProductRule(item).layoutMode === 'guided' ? 'active' : ''}"
+            data-layout-mode="guided"
+            type="button"
+          >
+            Guided
+          </button>
+
+          <button
+            class="layout-mode-btn ${getProductRule(item).layoutMode === 'manual' ? 'active' : ''}"
+            data-layout-mode="manual"
+            type="button"
+          >
+            Manual
+          </button>
+        </div>
+
+        <div class="manual-zone-editor ${getProductRule(item).layoutMode === 'auto' ? 'hidden' : ''}">
+          <div class="zone-section-label">START CUBE · FEET FROM BACK / LEFT / FLOOR</div>
+
+          <div class="zone-input-grid">
+            <label>
+              <span>X · Length</span>
+              <input class="zone-number" data-zone-field="zoneXFt" type="number" min="0" step="1" value="${Number(getProductRule(item).zoneXFt || 0)}">
+            </label>
+
+            <label>
+              <span>Y · Width</span>
+              <input class="zone-number" data-zone-field="zoneYFt" type="number" min="0" step="1" value="${Number(getProductRule(item).zoneYFt || 0)}">
+            </label>
+
+            <label>
+              <span>Z · Height</span>
+              <input class="zone-number" data-zone-field="zoneZFt" type="number" min="0" step="1" value="${Number(getProductRule(item).zoneZFt || 0)}">
+            </label>
+          </div>
+
+          <div class="zone-section-label">DRAG / SIZE THE PRODUCT ZONE</div>
+
+          <div class="zone-input-grid">
+            <label>
+              <span>X Size · Length</span>
+              <input class="zone-number" data-zone-field="zoneLFt" type="number" min="1" step="1" value="${Math.max(1, Number(getProductRule(item).zoneLFt || 1))}">
+            </label>
+
+            <label>
+              <span>Y Size · Width</span>
+              <input class="zone-number" data-zone-field="zoneWFt" type="number" min="1" step="1" value="${Math.max(1, Number(getProductRule(item).zoneWFt || 1))}">
+            </label>
+
+            <label>
+              <span>Z Size · Height</span>
+              <input class="zone-number" data-zone-field="zoneHFt" type="number" min="1" step="1" value="${Math.max(1, Number(getProductRule(item).zoneHFt || 1))}">
+            </label>
+          </div>
+
+          <div class="manual-zone-actions">
+            <label class="manual-orientation-field">
+              <span>Orientation inside zone</span>
+              <select class="manual-orientation-select">
+                <option value="auto" ${getProductRule(item).manualOrientation === 'auto' ? 'selected' : ''}>Auto Best Fit</option>
+                <option value="default" ${getProductRule(item).manualOrientation === 'default' ? 'selected' : ''}>Default</option>
+                <option value="floor" ${getProductRule(item).manualOrientation === 'floor' ? 'selected' : ''}>Rotate Left / Right</option>
+                <option value="side" ${getProductRule(item).manualOrientation === 'side' ? 'selected' : ''}>Sideways</option>
+              </select>
+            </label>
+
+            <button class="small-btn zone-pick-btn ${manualSelectedItemId === item.Item_ID ? 'active' : ''}" type="button">
+              ${manualSelectedItemId === item.Item_ID ? 'Tap Container Grid…' : 'Select Start Cube'}
+            </button>
+
+            <button class="small-btn zone-full-width-btn" type="button">
+              Full Width
+            </button>
+          </div>
+
+          <div class="zone-summary">
+            Zone:
+            ${Number(getProductRule(item).zoneLFt || 0)}′ L ×
+            ${Number(getProductRule(item).zoneWFt || 0)}′ W ×
+            ${Number(getProductRule(item).zoneHFt || 0)}′ H
+            · Start
+            X${Number(getProductRule(item).zoneXFt || 0)}′
+            Y${Number(getProductRule(item).zoneYFt || 0)}′
+            Z${Number(getProductRule(item).zoneZFt || 0)}′
+          </div>
+        </div>
+      </div>
+
       <div class="product-placement-box">
         <div class="product-placement-title">
           Placement Strategy
@@ -2435,6 +2616,170 @@ function renderCargoList() {
             item.Item_ID,
             'upside'
           )
+      );
+
+    card
+      .querySelectorAll(
+        '.layout-mode-btn'
+      )
+      .forEach(
+        button => {
+          button.addEventListener(
+            'click',
+            () => {
+              const nextMode =
+                button.dataset.layoutMode;
+
+              updateProductRule(
+                item.Item_ID,
+                'layoutMode',
+                nextMode
+              );
+
+              if (
+                nextMode ===
+                'auto' &&
+                manualSelectedItemId ===
+                item.Item_ID
+              ) {
+                manualSelectedItemId =
+                  '';
+
+                manualGridVisible =
+                  false;
+              }
+            }
+          );
+        }
+      );
+
+    card
+      .querySelectorAll(
+        '.zone-number'
+      )
+      .forEach(
+        input => {
+          input.addEventListener(
+            'change',
+            event => {
+              const field =
+                event.target.dataset.zoneField;
+
+              const min =
+                field ===
+                'zoneXFt' ||
+                field ===
+                'zoneYFt' ||
+                field ===
+                'zoneZFt'
+                  ? 0
+                  : 1;
+
+              updateProductRule(
+                item.Item_ID,
+                field,
+                Math.max(
+                  min,
+                  Math.round(
+                    Number(
+                      event.target.value ||
+                      min
+                    )
+                  )
+                )
+              );
+            }
+          );
+        }
+      );
+
+    card
+      .querySelector(
+        '.manual-orientation-select'
+      )
+      ?.addEventListener(
+        'change',
+        event =>
+          updateProductRule(
+            item.Item_ID,
+            'manualOrientation',
+            event.target.value
+          )
+      );
+
+    card
+      .querySelector(
+        '.zone-pick-btn'
+      )
+      ?.addEventListener(
+        'click',
+        () => {
+          manualSelectedItemId =
+            item.Item_ID;
+
+          manualGridVisible =
+            true;
+
+          highlightedItemId =
+            item.Item_ID;
+
+          renderCargoList();
+
+          render3D(
+            packingResult
+          );
+
+          showToast(
+            'Tap a 1 ft floor cube in the container to set X and Y. Use Z to move the zone upward.'
+          );
+        }
+      );
+
+    card
+      .querySelector(
+        '.zone-full-width-btn'
+      )
+      ?.addEventListener(
+        'click',
+        () => {
+          const container =
+            selectedContainer();
+
+          if (!container) {
+            return;
+          }
+
+          const widthFt =
+            Math.max(
+              1,
+              Math.ceil(
+                Number(
+                  container.Internal_Width_mm ||
+                  0
+                ) /
+                ONE_FOOT_MM
+              )
+            );
+
+          productPlacementRules[
+            item.Item_ID
+          ] = {
+            ...getProductRule(
+              item
+            ),
+            zoneYFt:
+              0,
+            zoneWFt:
+              widthFt
+          };
+
+          saveProductPlacementRules();
+          refreshEverything();
+
+          showToast(
+            'Zone set to full container width.'
+          );
+        }
       );
 
     card
@@ -2787,7 +3132,37 @@ function defaultProductRule(
       'any',
 
     supportPct:
-      85
+      85,
+
+    /*
+      Hybrid layout mode:
+      auto   = optimiser controls this product
+      guided = user chooses a 1 ft zone, optimiser chooses best orientation
+      manual = user chooses a 1 ft zone and preferred orientation
+    */
+    layoutMode:
+      'auto',
+
+    zoneXFt:
+      0,
+
+    zoneYFt:
+      0,
+
+    zoneZFt:
+      0,
+
+    zoneLFt:
+      4,
+
+    zoneWFt:
+      7,
+
+    zoneHFt:
+      4,
+
+    manualOrientation:
+      'auto'
   };
 }
 
@@ -3446,6 +3821,766 @@ function productLateralScore(
 }
 
 
+function clampNumber(
+  value,
+  min,
+  max
+) {
+  return Math.min(
+    max,
+    Math.max(
+      min,
+      Number(
+        value ||
+        0
+      )
+    )
+  );
+}
+
+
+function manualZoneForItem(
+  item,
+  container
+) {
+  const rule =
+    getProductRule(
+      item
+    );
+
+  const x =
+    clampNumber(
+      Number(
+        rule.zoneXFt ||
+        0
+      ) *
+      ONE_FOOT_MM,
+      0,
+      container.L
+    );
+
+  const y =
+    clampNumber(
+      Number(
+        rule.zoneYFt ||
+        0
+      ) *
+      ONE_FOOT_MM,
+      0,
+      container.W
+    );
+
+  const z =
+    clampNumber(
+      Number(
+        rule.zoneZFt ||
+        0
+      ) *
+      ONE_FOOT_MM,
+      0,
+      container.H
+    );
+
+  const l =
+    clampNumber(
+      Math.max(
+        1,
+        Number(
+          rule.zoneLFt ||
+          1
+        )
+      ) *
+      ONE_FOOT_MM,
+      1,
+      Math.max(
+        1,
+        container.L -
+        x
+      )
+    );
+
+  const w =
+    clampNumber(
+      Math.max(
+        1,
+        Number(
+          rule.zoneWFt ||
+          1
+        )
+      ) *
+      ONE_FOOT_MM,
+      1,
+      Math.max(
+        1,
+        container.W -
+        y
+      )
+    );
+
+  const h =
+    clampNumber(
+      Math.max(
+        1,
+        Number(
+          rule.zoneHFt ||
+          1
+        )
+      ) *
+      ONE_FOOT_MM,
+      1,
+      Math.max(
+        1,
+        container.H -
+        z
+      )
+    );
+
+  return {
+    x,
+    y,
+    z,
+    l,
+    w,
+    h
+  };
+}
+
+
+function boxesIntersect(
+  a,
+  b
+) {
+  const EPS =
+    0.001;
+
+  return !(
+    a.x +
+      a.l <=
+      b.x +
+      EPS ||
+    b.x +
+      b.l <=
+      a.x +
+      EPS ||
+    a.y +
+      a.w <=
+      b.y +
+      EPS ||
+    b.y +
+      b.w <=
+      a.y +
+      EPS ||
+    a.z +
+      a.h <=
+      b.z +
+      EPS ||
+    b.z +
+      b.h <=
+      a.z +
+      EPS
+  );
+}
+
+
+function placementOverlaps(
+  candidate,
+  placements
+) {
+  return placements.some(
+    placed =>
+      boxesIntersect(
+        candidate,
+        placed
+      )
+  );
+}
+
+
+function subtractPlacementFromSpaces(
+  freeSpaces,
+  placement
+) {
+  const next =
+    [];
+
+  freeSpaces.forEach(
+    space => {
+      if (
+        !boxesIntersect(
+          space,
+          placement
+        )
+      ) {
+        next.push(
+          space
+        );
+
+        return;
+      }
+
+      const sx2 =
+        space.x +
+        space.l;
+
+      const sy2 =
+        space.y +
+        space.w;
+
+      const sz2 =
+        space.z +
+        space.h;
+
+      const px1 =
+        Math.max(
+          space.x,
+          placement.x
+        );
+
+      const py1 =
+        Math.max(
+          space.y,
+          placement.y
+        );
+
+      const pz1 =
+        Math.max(
+          space.z,
+          placement.z
+        );
+
+      const px2 =
+        Math.min(
+          sx2,
+          placement.x +
+          placement.l
+        );
+
+      const py2 =
+        Math.min(
+          sy2,
+          placement.y +
+          placement.w
+        );
+
+      const pz2 =
+        Math.min(
+          sz2,
+          placement.z +
+          placement.h
+        );
+
+      const push =
+        (
+          x,
+          y,
+          z,
+          l,
+          w,
+          h
+        ) => {
+          if (
+            l >
+            0.001 &&
+            w >
+            0.001 &&
+            h >
+            0.001
+          ) {
+            next.push({
+              x,
+              y,
+              z,
+              l,
+              w,
+              h
+            });
+          }
+        };
+
+      /*
+        Six non-overlapping slabs around an arbitrary occupied box.
+        This allows Auto Fill to continue around manually reserved
+        product placements.
+      */
+      push(
+        space.x,
+        space.y,
+        space.z,
+        px1 -
+          space.x,
+        space.w,
+        space.h
+      );
+
+      push(
+        px2,
+        space.y,
+        space.z,
+        sx2 -
+          px2,
+        space.w,
+        space.h
+      );
+
+      push(
+        px1,
+        space.y,
+        space.z,
+        px2 -
+          px1,
+        py1 -
+          space.y,
+        space.h
+      );
+
+      push(
+        px1,
+        py2,
+        space.z,
+        px2 -
+          px1,
+        sy2 -
+          py2,
+        space.h
+      );
+
+      push(
+        px1,
+        py1,
+        space.z,
+        px2 -
+          px1,
+        py2 -
+          py1,
+        pz1 -
+          space.z
+      );
+
+      push(
+        px1,
+        py1,
+        pz2,
+        px2 -
+          px1,
+        py2 -
+          py1,
+        sz2 -
+          pz2
+      );
+    }
+  );
+
+  return pruneContainedSpaces(
+    next
+  );
+}
+
+
+function manualOrientationChoices(
+  item,
+  rule
+) {
+  const all =
+    allowedOrientations(
+      item
+    );
+
+  if (
+    !all.length
+  ) {
+    return [];
+  }
+
+  if (
+    rule.layoutMode ===
+      'guided' ||
+    rule.manualOrientation ===
+      'auto'
+  ) {
+    return all;
+  }
+
+  const wanted =
+    rule.manualOrientation;
+
+  const filtered =
+    all.filter(
+      orientation =>
+        orientation.type ===
+        wanted
+    );
+
+  return filtered.length
+    ? filtered
+    : all;
+}
+
+
+function chooseManualZoneOrientation(
+  item,
+  rule,
+  zone
+) {
+  const choices =
+    manualOrientationChoices(
+      item,
+      rule
+    );
+
+  let best =
+    null;
+
+  choices.forEach(
+    orientation => {
+      let layers =
+        Math.floor(
+          zone.h /
+          orientation.h
+        );
+
+      if (
+        !toBoolean(
+          item.Stackable
+        )
+      ) {
+        layers =
+          Math.min(
+            layers,
+            1
+          );
+      }
+
+      const maxLayers =
+        Number(
+          item.Max_Layers ||
+          0
+        );
+
+      if (
+        maxLayers >
+        0
+      ) {
+        layers =
+          Math.min(
+            layers,
+            maxLayers
+          );
+      }
+
+      const capacity =
+        Math.floor(
+          zone.l /
+          orientation.l
+        ) *
+        Math.floor(
+          zone.w /
+          orientation.w
+        ) *
+        Math.max(
+          0,
+          layers
+        );
+
+      const usedVolume =
+        capacity *
+        orientation.l *
+        orientation.w *
+        orientation.h;
+
+      if (
+        !best ||
+        capacity >
+          best.capacity ||
+        (
+          capacity ===
+            best.capacity &&
+          usedVolume >
+            best.usedVolume
+        )
+      ) {
+        best = {
+          orientation,
+          capacity,
+          usedVolume
+        };
+      }
+    }
+  );
+
+  return best;
+}
+
+
+function buildManualZonePlacements(
+  item,
+  targetQuantity,
+  container,
+  placements,
+  loadedPayloadKG,
+  maxPayloadKG
+) {
+  const rule =
+    getProductRule(
+      item
+    );
+
+  const zone =
+    manualZoneForItem(
+      item,
+      container
+    );
+
+  const selected =
+    chooseManualZoneOrientation(
+      item,
+      rule,
+      zone
+    );
+
+  const packageWeightKG =
+    Math.max(
+      0,
+      Number(
+        item.Gross_Weight_Kg ||
+        0
+      )
+    );
+
+  const created =
+    [];
+
+  if (
+    !selected ||
+    selected.capacity <=
+    0
+  ) {
+    return {
+      placements:
+        created,
+      loadedPayloadKG,
+      zone,
+      orientation:
+        null,
+      stopReason:
+        'manual-zone'
+    };
+  }
+
+  const o =
+    selected.orientation;
+
+  const zoneEndX =
+    zone.x +
+    zone.l;
+
+  const zoneEndY =
+    zone.y +
+    zone.w;
+
+  const zoneEndZ =
+    zone.z +
+    zone.h;
+
+  const maxLayers =
+    Number(
+      item.Max_Layers ||
+      0
+    );
+
+  let layer =
+    0;
+
+  outer:
+  for (
+    let z = zone.z;
+    z +
+      o.h <=
+      zoneEndZ +
+      0.001;
+    z +=
+      o.h
+  ) {
+    layer++;
+
+    if (
+      !toBoolean(
+        item.Stackable
+      ) &&
+      layer >
+      1
+    ) {
+      break;
+    }
+
+    if (
+      maxLayers >
+      0 &&
+      layer >
+      maxLayers
+    ) {
+      break;
+    }
+
+    for (
+      let y = zone.y;
+      y +
+        o.w <=
+        zoneEndY +
+        0.001;
+      y +=
+        o.w
+    ) {
+      for (
+        let x = zone.x;
+        x +
+          o.l <=
+          zoneEndX +
+          0.001;
+        x +=
+          o.l
+      ) {
+        if (
+          created.length >=
+          targetQuantity
+        ) {
+          break outer;
+        }
+
+        if (
+          maxPayloadKG >
+          0 &&
+          loadedPayloadKG +
+          packageWeightKG >
+          maxPayloadKG +
+          0.0001
+        ) {
+          break outer;
+        }
+
+        const candidate = {
+          itemId:
+            item.Item_ID,
+
+          colour:
+            displayColour(
+              item
+            ),
+
+          x,
+          y,
+          z,
+
+          l:
+            o.l,
+
+          w:
+            o.w,
+
+          h:
+            o.h,
+
+          orientationKey:
+            o.key,
+
+          orientationType:
+            o.type,
+
+          placementMode:
+            rule.layoutMode ===
+            'manual'
+              ? 'manual-zone'
+              : 'guided-zone'
+        };
+
+        if (
+          placementOverlaps(
+            candidate,
+            [
+              ...placements,
+              ...created
+            ]
+          )
+        ) {
+          continue;
+        }
+
+        /*
+          Anything above the floor must be physically supported.
+          This is what allows a manually selected upper zone to sit
+          on top of a product already placed below it.
+        */
+        if (
+          z >
+          0.001
+        ) {
+          const support =
+            placementSupportRatio(
+              x,
+              y,
+              z,
+              o.l,
+              o.w,
+              [
+                ...placements,
+                ...created
+              ]
+            );
+
+          if (
+            support <
+            0.80
+          ) {
+            continue;
+          }
+
+          if (
+            !supportCargoIsSafe(
+              x,
+              y,
+              z,
+              o.l,
+              o.w,
+              item,
+              [
+                ...placements,
+                ...created
+              ]
+            )
+          ) {
+            continue;
+          }
+        }
+
+        created.push(
+          candidate
+        );
+
+        loadedPayloadKG +=
+          packageWeightKG;
+      }
+    }
+  }
+
+  return {
+    placements:
+      created,
+
+    loadedPayloadKG,
+
+    zone,
+
+    orientation:
+      o,
+
+    stopReason:
+      created.length <
+      targetQuantity
+        ? 'manual-zone'
+        : ''
+  };
+}
+
+
 function calculatePacking() {
   const container =
     selectedContainer();
@@ -3510,10 +4645,215 @@ function calculatePacking() {
       maxPayloadKG
     );
 
+  /*
+    HYBRID PRE-PASS
+    Guided / Manual products are physically placed first in the
+    user's selected 1 ft zones. Their actual carton dimensions are
+    still used. Every placed carton is then subtracted from the free
+    3D space so Auto products can pack around and above them.
+  */
+  for (
+    const item of
+    sortedItems.filter(
+      cargo =>
+        getProductRule(
+          cargo
+        ).layoutMode !==
+        'auto'
+    )
+  ) {
+    const requested =
+      Number(
+        item.Quantity ||
+        0
+      );
+
+    const targetQuantity =
+      Math.min(
+        requested,
+        payloadTargets.get(
+          item.Item_ID
+        ) ??
+        requested
+      );
+
+    const rule =
+      getProductRule(
+        item
+      );
+
+    const packageWeightKG =
+      Math.max(
+        0,
+        Number(
+          item.Gross_Weight_Kg ||
+          0
+        )
+      );
+
+    const manual =
+      buildManualZonePlacements(
+        item,
+        targetQuantity,
+        C,
+        placements,
+        loadedPayloadKG,
+        maxPayloadKG
+      );
+
+    loadedPayloadKG =
+      manual.loadedPayloadKG;
+
+    manual.placements.forEach(
+      placement => {
+        placements.push(
+          placement
+        );
+
+        freeSpaces =
+          subtractPlacementFromSpaces(
+            freeSpaces,
+            placement
+          );
+      }
+    );
+
+    const fitted =
+      manual.placements.length;
+
+    const remaining =
+      Math.max(
+        0,
+        requested -
+        fitted
+      );
+
+    const breakdown =
+      manual.orientation &&
+      fitted
+        ? [
+            {
+              key:
+                manual.orientation.key,
+
+              type:
+                manual.orientation.type,
+
+              label:
+                orientationHumanLabel(
+                  manual.orientation,
+                  item
+                ),
+
+              dimensions: {
+                l:
+                  manual.orientation.l,
+
+                w:
+                  manual.orientation.w,
+
+                h:
+                  manual.orientation.h
+              },
+
+              count:
+                fitted
+            }
+          ]
+        : [];
+
+    const floorAreaCovered =
+      manual.placements
+        .filter(
+          placement =>
+            placement.z <=
+            0.001
+        )
+        .reduce(
+          (
+            sum,
+            placement
+          ) =>
+            sum +
+            placement.l *
+            placement.w,
+          0
+        );
+
+    results.push({
+      item,
+      requested,
+      targetQuantity,
+      fitted,
+      remaining,
+      breakdown,
+      mixed:
+        false,
+
+      stopReason:
+        manual.stopReason,
+
+      rule,
+
+      manualZone:
+        manual.zone,
+
+      floorAreaCovered,
+
+      floorCoveragePct:
+        C.L *
+        C.W
+          ? floorAreaCovered /
+            (
+              C.L *
+              C.W
+            ) *
+            100
+          : 0,
+
+      loadedWeightKG:
+        fitted *
+        packageWeightKG,
+
+      packageWeightKG,
+
+      orientation:
+        breakdown.length
+          ? {
+              ...breakdown[
+                0
+              ].dimensions,
+
+              type:
+                breakdown[
+                  0
+                ].type,
+
+              label:
+                breakdown[
+                  0
+                ].label
+            }
+          : null
+    });
+  }
+
   for (
     const item of
     sortedItems
   ) {
+    /*
+      Guided / Manual products were already handled by the hybrid
+      pre-pass. The standard optimiser handles Auto products only.
+    */
+    if (
+      getProductRule(
+        item
+      ).layoutMode !==
+      'auto'
+    ) {
+      continue;
+    }
     const requested =
       Number(
         item.Quantity ||
@@ -3884,12 +5224,412 @@ function calculatePacking() {
     });
   }
 
+  /*
+    TIGHT PACK — GLOBAL GAP FILL PASS
+    ---------------------------------
+    The first pass respects the user's product placement priorities.
+    This second pass then treats every remaining free 3D space as
+    shared space and tries ALL still-unloaded products in ALL allowed
+    orientations.
+
+    This is what allows:
+      - Product B above Product A
+      - smaller cartons inside leftover side gaps
+      - mixed products within the same length section
+      - a final "use every practical gap" pass
+  */
+  const gapFillLimit =
+    Math.min(
+      12000,
+      results.reduce(
+        (
+          sum,
+          row
+        ) =>
+          sum +
+          Math.max(
+            0,
+            Number(
+              row.targetQuantity ||
+              0
+            ) -
+            Number(
+              row.fitted ||
+              0
+            )
+          ),
+        0
+      )
+    );
+
+  for (
+    let gapIteration = 0;
+    gapIteration <
+    gapFillLimit;
+    gapIteration++
+  ) {
+    let bestGlobal =
+      null;
+
+    for (
+      const row of
+      results
+    ) {
+      const item =
+        row.item;
+
+      /*
+        A user-reserved Guided / Manual product stays inside its
+        selected zone. Auto Fill uses only products left in Auto.
+      */
+      if (
+        getProductRule(
+          item
+        ).layoutMode !==
+        'auto'
+      ) {
+        continue;
+      }
+
+      const remainingTarget =
+        Math.max(
+          0,
+          Number(
+            row.targetQuantity ||
+            0
+          ) -
+          Number(
+            row.fitted ||
+            0
+          )
+        );
+
+      if (
+        remainingTarget <=
+        0
+      ) {
+        continue;
+      }
+
+      const packageWeightKG =
+        Math.max(
+          0,
+          Number(
+            item.Gross_Weight_Kg ||
+            0
+          )
+        );
+
+      if (
+        maxPayloadKG >
+        0 &&
+        loadedPayloadKG +
+        packageWeightKG >
+        maxPayloadKG +
+        0.0001
+      ) {
+        continue;
+      }
+
+      const orientations =
+        allowedOrientations(
+          item
+        );
+
+      const rule =
+        getProductRule(
+          item
+        );
+
+      /*
+        During gap-fill, Floor Base / Bottom→Top / Auto products may
+        use any safe supported gap. A Top Layer product remains a
+        Top Layer product and must still be above the floor.
+      */
+      const phase =
+        rule.placement ===
+        'top-layer'
+          ? 'top-layer'
+          : 'auto';
+
+      const candidate =
+        findBestMixedPlacement(
+          freeSpaces,
+          orientations,
+          item,
+          C,
+          {
+            rule,
+            phase,
+            placements,
+            tightPack:
+              true
+          }
+        );
+
+      if (
+        !candidate
+      ) {
+        continue;
+      }
+
+      const boxVolume =
+        candidate.orientation.l *
+        candidate.orientation.w *
+        candidate.orientation.h;
+
+      const spaceVolume =
+        candidate.space.l *
+        candidate.space.w *
+        candidate.space.h;
+
+      const residualVolume =
+        Math.max(
+          0,
+          spaceVolume -
+          boxVolume
+        );
+
+      /*
+        Global score:
+        1. Prefer the smallest waste in the selected free space.
+        2. Prefer lower placements.
+        3. Prefer larger cartons when waste is equal.
+        4. Prefer heavier cartons lower when everything else ties.
+      */
+      const tightScore = [
+        roundScore(
+          residualVolume
+        ),
+        roundScore(
+          candidate.space.z
+        ),
+        -roundScore(
+          boxVolume
+        ),
+        -roundScore(
+          packageWeightKG
+        ),
+        ...candidate.score
+      ];
+
+      if (
+        !bestGlobal ||
+        compareMixedScores(
+          tightScore,
+          bestGlobal.tightScore
+        ) <
+        0
+      ) {
+        bestGlobal = {
+          row,
+          item,
+          candidate,
+          packageWeightKG,
+          tightScore
+        };
+      }
+    }
+
+    if (
+      !bestGlobal
+    ) {
+      break;
+    }
+
+    const {
+      row,
+      item,
+      candidate,
+      packageWeightKG
+    } =
+      bestGlobal;
+
+    const placement = {
+      itemId:
+        item.Item_ID,
+
+      colour:
+        displayColour(
+          item
+        ),
+
+      x:
+        candidate.space.x,
+
+      y:
+        candidate.space.y,
+
+      z:
+        candidate.space.z,
+
+      l:
+        candidate.orientation.l,
+
+      w:
+        candidate.orientation.w,
+
+      h:
+        candidate.orientation.h,
+
+      orientationKey:
+        candidate.orientation.key,
+
+      orientationType:
+        candidate.orientation.type,
+
+      placementMode:
+        'gap-fill'
+    };
+
+    placements.push(
+      placement
+    );
+
+    loadedPayloadKG +=
+      packageWeightKG;
+
+    row.fitted +=
+      1;
+
+    row.remaining =
+      Math.max(
+        0,
+        Number(
+          row.requested ||
+          0
+        ) -
+        row.fitted
+      );
+
+    row.loadedWeightKG =
+      row.fitted *
+      packageWeightKG;
+
+    if (
+      placement.z <=
+      0.001
+    ) {
+      row.floorAreaCovered +=
+        placement.l *
+        placement.w;
+
+      row.floorCoveragePct =
+        containerFloorArea
+          ? row.floorAreaCovered /
+            containerFloorArea *
+            100
+          : 0;
+    }
+
+    let breakdownRow =
+      row.breakdown.find(
+        part =>
+          part.key ===
+          candidate.orientation.key
+      );
+
+    if (
+      !breakdownRow
+    ) {
+      breakdownRow = {
+        key:
+          candidate.orientation.key,
+
+        type:
+          candidate.orientation.type,
+
+        label:
+          orientationHumanLabel(
+            candidate.orientation,
+            item
+          ),
+
+        dimensions: {
+          l:
+            candidate.orientation.l,
+
+          w:
+            candidate.orientation.w,
+
+          h:
+            candidate.orientation.h
+        },
+
+        count:
+          0
+      };
+
+      row.breakdown.push(
+        breakdownRow
+      );
+    }
+
+    breakdownRow.count +=
+      1;
+
+    row.breakdown.sort(
+      (
+        a,
+        b
+      ) =>
+        b.count -
+        a.count
+    );
+
+    row.mixed =
+      row.breakdown.length >
+      1;
+
+    if (
+      row.breakdown.length
+    ) {
+      row.orientation = {
+        ...row.breakdown[
+          0
+        ].dimensions,
+
+        type:
+          row.breakdown[
+            0
+          ].type,
+
+        label:
+          row.breakdown[
+            0
+          ].label
+      };
+    }
+
+    if (
+      row.fitted >=
+      row.requested
+    ) {
+      row.stopReason =
+        '';
+    }
+
+    freeSpaces =
+      splitFreeSpaceAfterPlacement(
+        freeSpaces,
+        candidate.spaceIndex,
+        candidate.orientation
+      );
+
+    freeSpaces =
+      pruneContainedSpaces(
+        freeSpaces
+      );
+  }
+
   return {
     placements,
     results,
     freeSpaces,
     loadedPayloadKG,
-    maxPayloadKG
+    maxPayloadKG,
+    tightPack:
+      true
   };
 }
 
@@ -3989,6 +5729,138 @@ function findBestMixedPlacement(
   }
 
   return best;
+}
+
+
+function supportCargoIsSafe(
+  x,
+  y,
+  z,
+  l,
+  w,
+  item,
+  placements
+) {
+  if (
+    z <=
+    0.001
+  ) {
+    return true;
+  }
+
+  const currentWeight =
+    Math.max(
+      0,
+      Number(
+        item.Gross_Weight_Kg ||
+        0
+      )
+    );
+
+  const supporters =
+    placements.filter(
+      placed => {
+        const top =
+          placed.z +
+          placed.h;
+
+        if (
+          Math.abs(
+            top -
+            z
+          ) >
+          1
+        ) {
+          return false;
+        }
+
+        const overlapL =
+          Math.max(
+            0,
+            Math.min(
+              x + l,
+              placed.x +
+              placed.l
+            ) -
+            Math.max(
+              x,
+              placed.x
+            )
+          );
+
+        const overlapW =
+          Math.max(
+            0,
+            Math.min(
+              y + w,
+              placed.y +
+              placed.w
+            ) -
+            Math.max(
+              y,
+              placed.y
+            )
+          );
+
+        return (
+          overlapL >
+          0.001 &&
+          overlapW >
+          0.001
+        );
+      }
+    );
+
+  if (
+    !supporters.length
+  ) {
+    return false;
+  }
+
+  for (
+    const placed of
+    supporters
+  ) {
+    const supportItem =
+      items.find(
+        candidate =>
+          candidate.Item_ID ===
+          placed.itemId
+      );
+
+    if (
+      !supportItem
+    ) {
+      continue;
+    }
+
+    const supportWeight =
+      Math.max(
+        0,
+        Number(
+          supportItem.Gross_Weight_Kg ||
+          0
+        )
+      );
+
+    /*
+      When both weights are known, do not place a heavier package
+      directly on a lighter package.
+    */
+    if (
+      currentWeight >
+      0 &&
+      supportWeight >
+      0 &&
+      currentWeight >
+      supportWeight +
+      0.0001
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 
@@ -4137,6 +6009,26 @@ function orientationFitsSpace(
     ) {
       return false;
     }
+  }
+
+  /*
+    Cross-product stacking safety:
+    a heavier package is not allowed directly on a lighter package.
+  */
+  if (
+    space.z >
+    EPS &&
+    !supportCargoIsSafe(
+      space.x,
+      space.y,
+      space.z,
+      orientation.l,
+      orientation.w,
+      item,
+      placements
+    )
+  ) {
+    return false;
   }
 
   if (
@@ -6194,6 +8086,163 @@ function initThree() {
     'hidden'
   );
 
+  renderer.domElement.addEventListener(
+    'click',
+    event => {
+      if (
+        !manualSelectedItemId
+      ) {
+        return;
+      }
+
+      const item =
+        items.find(
+          cargo =>
+            cargo.Item_ID ===
+            manualSelectedItemId
+        );
+
+      const container =
+        selectedContainer();
+
+      if (
+        !item ||
+        !container
+      ) {
+        return;
+      }
+
+      const rect =
+        renderer.domElement
+          .getBoundingClientRect();
+
+      const pointer =
+        new THREE.Vector2(
+          (
+            (
+              event.clientX -
+              rect.left
+            ) /
+            rect.width
+          ) *
+            2 -
+            1,
+
+          -(
+            (
+              event.clientY -
+              rect.top
+            ) /
+            rect.height
+          ) *
+            2 +
+            1
+        );
+
+      const raycaster =
+        new THREE.Raycaster();
+
+      raycaster.setFromCamera(
+        pointer,
+        camera
+      );
+
+      const floorPlane =
+        new THREE.Plane(
+          new THREE.Vector3(
+            0,
+            1,
+            0
+          ),
+          0
+        );
+
+      const hit =
+        new THREE.Vector3();
+
+      if (
+        !raycaster.ray.intersectPlane(
+          floorPlane,
+          hit
+        )
+      ) {
+        return;
+      }
+
+      const L =
+        Number(
+          container.Internal_Length_mm ||
+          0
+        );
+
+      const W =
+        Number(
+          container.Internal_Width_mm ||
+          0
+        );
+
+      const scale =
+        L
+          ? 10 /
+            L
+          : 1;
+
+      const xMM =
+        hit.x /
+        scale;
+
+      const yMM =
+        hit.z /
+        scale;
+
+      if (
+        xMM <
+          0 ||
+        yMM <
+          0 ||
+        xMM >
+          L ||
+        yMM >
+          W
+      ) {
+        return;
+      }
+
+      const xFt =
+        Math.floor(
+          xMM /
+          ONE_FOOT_MM
+        );
+
+      const yFt =
+        Math.floor(
+          yMM /
+          ONE_FOOT_MM
+        );
+
+      productPlacementRules[
+        item.Item_ID
+      ] = {
+        ...getProductRule(
+          item
+        ),
+
+        zoneXFt:
+          xFt,
+
+        zoneYFt:
+          yFt
+      };
+
+      saveProductPlacementRules();
+      refreshEverything();
+
+      showToast(
+        `Start cube set: X ${xFt} ft · Y ${yFt} ft.`
+      );
+    }
+  );
+
   controls =
     new OrbitControls(
       camera,
@@ -6343,6 +8392,279 @@ function render3D(
   cargoGroup.add(
     containerModel
   );
+
+
+  /* 1 FT MANUAL / GUIDED GRID + SELECTED PRODUCT ZONE */
+
+  const hasManualLayout =
+    items.some(
+      item =>
+        getProductRule(
+          item
+        ).layoutMode !==
+        'auto'
+    );
+
+  if (
+    hasManualLayout ||
+    manualGridVisible
+  ) {
+    const oneFootScaled =
+      ONE_FOOT_MM *
+      scale;
+
+    const gridMaterial =
+      new THREE.LineBasicMaterial({
+        color:
+          0x8ea0b5,
+
+        transparent:
+          true,
+
+        opacity:
+          0.30
+      });
+
+    for (
+      let x =
+        oneFootScaled;
+      x <
+        scaledL -
+        0.001;
+      x +=
+        oneFootScaled
+    ) {
+      const line =
+        new THREE.Line(
+          new THREE.BufferGeometry()
+            .setFromPoints([
+              new THREE.Vector3(
+                x,
+                0.008,
+                0
+              ),
+              new THREE.Vector3(
+                x,
+                0.008,
+                scaledW
+              )
+            ]),
+          gridMaterial
+        );
+
+      cargoGroup.add(
+        line
+      );
+    }
+
+    for (
+      let z =
+        oneFootScaled;
+      z <
+        scaledW -
+        0.001;
+      z +=
+        oneFootScaled
+    ) {
+      const line =
+        new THREE.Line(
+          new THREE.BufferGeometry()
+            .setFromPoints([
+              new THREE.Vector3(
+                0,
+                0.008,
+                z
+              ),
+              new THREE.Vector3(
+                scaledL,
+                0.008,
+                z
+              )
+            ]),
+          gridMaterial
+        );
+
+      cargoGroup.add(
+        line
+      );
+    }
+  }
+
+  const selectedManualItem =
+    items.find(
+      item =>
+        item.Item_ID ===
+        manualSelectedItemId
+    );
+
+  if (
+    selectedManualItem
+  ) {
+    const zone =
+      manualZoneForItem(
+        selectedManualItem,
+        {
+          L,
+          W,
+          H
+        }
+      );
+
+    const zoneGeometry =
+      new THREE.BoxGeometry(
+        zone.l *
+        scale,
+        zone.h *
+        scale,
+        zone.w *
+        scale
+      );
+
+    const zoneMaterial =
+      new THREE.MeshBasicMaterial({
+        color:
+          displayColour(
+            selectedManualItem
+          ),
+
+        transparent:
+          true,
+
+        opacity:
+          0.13,
+
+        depthWrite:
+          false
+      });
+
+    const zoneMesh =
+      new THREE.Mesh(
+        zoneGeometry,
+        zoneMaterial
+      );
+
+    zoneMesh.position.set(
+      (
+        zone.x +
+        zone.l /
+        2
+      ) *
+      scale,
+
+      (
+        zone.z +
+        zone.h /
+        2
+      ) *
+      scale,
+
+      (
+        zone.y +
+        zone.w /
+        2
+      ) *
+      scale
+    );
+
+    const zoneEdges =
+      new THREE.LineSegments(
+        new THREE.EdgesGeometry(
+          zoneGeometry
+        ),
+
+        new THREE.LineBasicMaterial({
+          color:
+            displayColour(
+              selectedManualItem
+            ),
+
+          transparent:
+            true,
+
+          opacity:
+            0.90
+        })
+      );
+
+    zoneMesh.add(
+      zoneEdges
+    );
+
+    cargoGroup.add(
+      zoneMesh
+    );
+
+    const cubeSize =
+      Math.min(
+        ONE_FOOT_MM,
+        L -
+          zone.x,
+        W -
+          zone.y,
+        H -
+          zone.z
+      );
+
+    if (
+      cubeSize >
+      0
+    ) {
+      const cube =
+        new THREE.Mesh(
+          new THREE.BoxGeometry(
+            cubeSize *
+            scale,
+            cubeSize *
+            scale,
+            cubeSize *
+            scale
+          ),
+
+          new THREE.MeshBasicMaterial({
+            color:
+              displayColour(
+                selectedManualItem
+              ),
+
+            transparent:
+              true,
+
+            opacity:
+              0.28,
+
+            depthWrite:
+              false
+          })
+        );
+
+      cube.position.set(
+        (
+          zone.x +
+          cubeSize /
+          2
+        ) *
+        scale,
+
+        (
+          zone.z +
+          cubeSize /
+          2
+        ) *
+        scale,
+
+        (
+          zone.y +
+          cubeSize /
+          2
+        ) *
+        scale
+      );
+
+      cargoGroup.add(
+        cube
+      );
+    }
+  }
 
 
   /* TRUE 3D DIMENSIONS */
@@ -7930,24 +10252,13 @@ function bindEvents() {
     .addEventListener(
       'click',
       event => {
-        containerVisualMode =
-          containerVisualMode ===
-          'cutaway'
-            ? 'shell'
-            : 'cutaway';
-
-        event.currentTarget
-          .textContent =
-            containerVisualMode ===
-            'cutaway'
-              ? 'Cutaway'
-              : 'Full Shell';
+        manualGridVisible =
+          !manualGridVisible;
 
         event.currentTarget
           .classList.toggle(
             'active-tool',
-            containerVisualMode ===
-            'cutaway'
+            manualGridVisible
           );
 
         render3D(

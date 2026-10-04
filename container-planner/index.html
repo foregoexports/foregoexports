@@ -225,7 +225,7 @@
           <strong>Configure each product independently.</strong>
         </div>
         <span>
-          Floor Base · Bottom → Top · Top Layer · Auto, with Front / Middle / Back and Left / Centre / Right preferences.
+          Auto Tight Pack by default · Guided 1 ft zones · Manual product zones · Auto Fill Gaps around your locked layout.
         </span>
       </section>
 
@@ -274,8 +274,9 @@
               </div>
 
               <div class="viewer-actions">
-                <button id="shellModeBtn" class="viewer-btn active-tool" type="button" title="Switch between cutaway and fuller container shell">
-                  Cutaway
+                <span class="tight-pack-badge">Tight Pack Active</span>
+                <button id="shellModeBtn" class="viewer-btn" type="button" title="Show or hide the 1 ft manual layout grid">
+                  1 ft Grid
                 </button>
 
                 <button id="dimensionToggleBtn" class="viewer-btn active-tool" type="button" title="Show or hide 3D dimensions">
@@ -564,5 +565,15 @@
   <div id="appToast" class="app-toast hidden" aria-live="polite"></div>
 
   <script type="module" src="./app.js"></script>
+
+  <div id="actionProgress" class="action-progress" role="status" aria-live="polite" aria-hidden="true">
+    <div class="action-progress-card">
+      <span class="action-spinner" aria-hidden="true"></span>
+      <div class="action-progress-copy">
+        <strong id="actionProgressTitle">Working…</strong>
+        <span id="actionProgressDetail">Updating container plan…</span>
+      </div>
+    </div>
+  </div>
 </body>
 </html>
