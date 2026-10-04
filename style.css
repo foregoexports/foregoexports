@@ -2668,3 +2668,81 @@ body.is-busy {
     font-size: 16px;
   }
 }
+
+
+/* GLOBAL ACTION PROGRESS */
+.action-progress {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  z-index: 99999;
+  width: min(92vw, 390px);
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -10px);
+  transition: opacity .16s ease, transform .16s ease, visibility .16s ease;
+}
+.action-progress.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+.action-progress-card {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  box-sizing: border-box;
+  padding: 10px 13px;
+  border: 1px solid rgba(199,211,224,.96);
+  border-radius: 13px;
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 10px 30px rgba(34,49,66,.14);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.action-spinner {
+  flex: 0 0 auto;
+  width: 19px;
+  height: 19px;
+  box-sizing: border-box;
+  border: 2.5px solid #dce5ee;
+  border-top-color: #456b91;
+  border-radius: 50%;
+  animation: actionSpinnerRotate .72s linear infinite;
+}
+.action-progress-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1px;
+}
+.action-progress-copy strong,
+.action-progress-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.action-progress-copy strong {
+  color: #24394f;
+  font-size: 12px;
+  line-height: 1.25;
+}
+.action-progress-copy span {
+  color: #738195;
+  font-size: 10px;
+  line-height: 1.25;
+}
+@keyframes actionSpinnerRotate {
+  to { transform: rotate(360deg); }
+}
+@media (max-width: 600px) {
+  .action-progress {
+    top: 8px;
+    width: calc(100vw - 18px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .action-progress { transition: none; }
+  .action-spinner { animation-duration: 1.4s; }
+}

@@ -565,5 +565,15 @@
   <div id="appToast" class="app-toast hidden" aria-live="polite"></div>
 
   <script type="module" src="./app.js"></script>
+
+  <div id="actionProgress" class="action-progress" role="status" aria-live="polite" aria-hidden="true">
+    <div class="action-progress-card">
+      <span class="action-spinner" aria-hidden="true"></span>
+      <div class="action-progress-copy">
+        <strong id="actionProgressTitle">Working…</strong>
+        <span id="actionProgressDetail">Updating container plan…</span>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

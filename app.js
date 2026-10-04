@@ -101,6 +101,68 @@ let manualSelectedItemId = '';
 let manualGridVisible = false;
 const ONE_FOOT_MM = 304.8;
 
+let actionProgressTimer = null;
+let actionProgressStartedAt = 0;
+
+function actionLabelFromElement(el) {
+  if (!el) return 'Working…';
+  const text = (
+    el.dataset?.loadingLabel ||
+    el.getAttribute?.('aria-label') ||
+    el.title ||
+    el.textContent ||
+    ''
+  ).replace(/\s+/g, ' ').trim();
+  return text ? (text.length > 34 ? text.slice(0, 34) + '…' : text) : 'Working…';
+}
+
+function showActionLoader(title = 'Working…', detail = 'Updating container plan…') {
+  const box = document.getElementById('actionProgress');
+  if (!box) return;
+  clearTimeout(actionProgressTimer);
+  actionProgressStartedAt = performance.now();
+  const t = document.getElementById('actionProgressTitle');
+  const d = document.getElementById('actionProgressDetail');
+  if (t) t.textContent = title;
+  if (d) d.textContent = detail;
+  box.classList.add('show');
+  box.setAttribute('aria-hidden', 'false');
+}
+
+function hideActionLoader(minimumVisibleMs = 300) {
+  const box = document.getElementById('actionProgress');
+  if (!box) return;
+  clearTimeout(actionProgressTimer);
+  const wait = Math.max(0, minimumVisibleMs - (performance.now() - actionProgressStartedAt));
+  actionProgressTimer = setTimeout(() => {
+    box.classList.remove('show');
+    box.setAttribute('aria-hidden', 'true');
+  }, wait);
+}
+
+function completeActionLoaderSoon() {
+  requestAnimationFrame(() => requestAnimationFrame(() => hideActionLoader(320)));
+}
+
+/* Pointer-down lets the spinner paint before a heavier click calculation starts. */
+document.addEventListener('pointerdown', event => {
+  const el = event.target.closest(
+    'button, select, input[type="checkbox"], input[type="radio"], input[type="number"], input[type="color"]'
+  );
+  if (!el || el.disabled) return;
+  showActionLoader(actionLabelFromElement(el), 'Updating container plan…');
+  clearTimeout(actionProgressTimer);
+  actionProgressTimer = setTimeout(() => hideActionLoader(0), 2500);
+}, true);
+
+document.addEventListener('change', event => {
+  const el = event.target.closest('select, input');
+  if (!el) return;
+  showActionLoader('Applying change…', actionLabelFromElement(el));
+  completeActionLoaderSoon();
+}, true);
+
+
 
 let productPlacementRules = {};
 
@@ -1843,6 +1905,8 @@ function refreshEverything() {
     packingResult,
     totals
   );
+
+  completeActionLoaderSoon();
 }
 
 
