@@ -92,6 +92,7 @@ let cargoGroup;
 let autoRotate = false;
 let currentView = '3d';
 
+let containerVisualMode = 'cutaway';
 let showSceneDimensions = true;
 let showOccupancyMarkers = true;
 let highlightedItemId = '';
@@ -6607,457 +6608,59 @@ function buildDetailedContainer(
   W,
   H
 ) {
-  /*
-    CLEAN ENGINEERING FRAME
-    -----------------------
-    The container is intentionally simplified so cargo remains the
-    visual priority.
+  // VISUAL-ONLY line-frame container.
+  // Packing / stuffing calculations are not changed here.
+  const group = new THREE.Group();
 
-    Visible:
-      - corner posts
-      - top / bottom rails
-      - end frames
-      - subtle floor
-      - faint floor guides
-      - door-side frame marker
+  const mat = new THREE.LineBasicMaterial({
+    color: 0x5f6d7c,
+    transparent: true,
+    opacity: 0.78
+  });
 
-    Hidden:
-      - solid side walls
-      - corrugated panels
-      - roof panels
-      - door leaves
-      - heavy vertical ribs
-  */
+  const softMat = new THREE.LineBasicMaterial({
+    color: 0xaeb8c4,
+    transparent: true,
+    opacity: 0.22
+  });
 
-  const group =
-    new THREE.Group();
+  const pts = [
+    [0,0,0],[L,0,0],[L,0,W],[0,0,W],
+    [0,H,0],[L,H,0],[L,H,W],[0,H,W]
+  ].map(p => new THREE.Vector3(...p));
 
-  const frameMaterial =
-    new THREE.MeshStandardMaterial({
-      color:
-        0x4f5d6d,
+  const edges = [
+    [0,1],[1,2],[2,3],[3,0],
+    [4,5],[5,6],[6,7],[7,4],
+    [0,4],[1,5],[2,6],[3,7]
+  ];
 
-      roughness:
-        0.46,
+  edges.forEach(([a,b]) => {
+    const geo = new THREE.BufferGeometry().setFromPoints([pts[a], pts[b]]);
+    group.add(new THREE.Line(geo, mat));
+  });
 
-      metalness:
-        0.38
-    });
+  // Subtle floor grid only.
+  const lengthSteps = 20;
+  const widthSteps = 6;
 
-  const frameHighlightMaterial =
-    new THREE.MeshStandardMaterial({
-      color:
-        0x7f8c99,
-
-      roughness:
-        0.42,
-
-      metalness:
-        0.30
-    });
-
-  const floorMaterial =
-    new THREE.MeshStandardMaterial({
-      color:
-        0xb6a084,
-
-      transparent:
-        true,
-
-      opacity:
-        0.18,
-
-      roughness:
-        0.90,
-
-      metalness:
-        0.00,
-
-      depthWrite:
-        false
-    });
-
-  const guideMaterial =
-    new THREE.LineBasicMaterial({
-      color:
-        0xaab4c0,
-
-      transparent:
-        true,
-
-      opacity:
-        0.30
-    });
-
-  const rail =
-    0.045;
-
-  const post =
-    0.060;
-
-
-  /* FLOOR */
-
-  const floor =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        L,
-        0.020,
-        W
-      ),
-      floorMaterial
-    );
-
-  floor.position.set(
-    L /
-      2,
-    -0.012,
-    W /
-      2
-  );
-
-  group.add(
-    floor
-  );
-
-
-  /* FLOOR GUIDES */
-
-  const guideRows =
-    10;
-
-  for (
-    let i = 1;
-    i <
-    guideRows;
-    i++
-  ) {
-    const z =
-      W *
-      i /
-      guideRows;
-
-    const line =
-      new THREE.Line(
-        new THREE.BufferGeometry()
-          .setFromPoints([
-            new THREE.Vector3(
-              0,
-              0.002,
-              z
-            ),
-            new THREE.Vector3(
-              L,
-              0.002,
-              z
-            )
-          ]),
-        guideMaterial
-      );
-
-    group.add(
-      line
-    );
+  for (let i = 1; i < lengthSteps; i++) {
+    const x = L * i / lengthSteps;
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x, 0.002, 0),
+      new THREE.Vector3(x, 0.002, W)
+    ]);
+    group.add(new THREE.Line(geo, softMat));
   }
 
-  const guideCols =
-    24;
-
-  for (
-    let i = 1;
-    i <
-    guideCols;
-    i++
-  ) {
-    const x =
-      L *
-      i /
-      guideCols;
-
-    const line =
-      new THREE.Line(
-        new THREE.BufferGeometry()
-          .setFromPoints([
-            new THREE.Vector3(
-              x,
-              0.002,
-              0
-            ),
-            new THREE.Vector3(
-              x,
-              0.002,
-              W
-            )
-          ]),
-        guideMaterial
-      );
-
-    group.add(
-      line
-    );
+  for (let i = 1; i < widthSteps; i++) {
+    const z = W * i / widthSteps;
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, 0.002, z),
+      new THREE.Vector3(L, 0.002, z)
+    ]);
+    group.add(new THREE.Line(geo, softMat));
   }
-
-
-  /* LONGITUDINAL RAILS */
-
-  [
-    0,
-    W
-  ].forEach(
-    z => {
-      const bottom =
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            L,
-            rail,
-            rail
-          ),
-          frameMaterial
-        );
-
-      bottom.position.set(
-        L /
-          2,
-        0,
-        z
-      );
-
-      group.add(
-        bottom
-      );
-
-      const top =
-        bottom.clone();
-
-      top.position.y =
-        H;
-
-      group.add(
-        top
-      );
-    }
-  );
-
-
-  /* END CROSS RAILS */
-
-  [
-    0,
-    L
-  ].forEach(
-    x => {
-      [
-        0,
-        H
-      ].forEach(
-        y => {
-          const beam =
-            new THREE.Mesh(
-              new THREE.BoxGeometry(
-                rail,
-                rail,
-                W
-              ),
-              frameMaterial
-            );
-
-          beam.position.set(
-            x,
-            y,
-            W /
-              2
-          );
-
-          group.add(
-            beam
-          );
-        }
-      );
-    }
-  );
-
-
-  /* CORNER POSTS */
-
-  [
-    [0, 0],
-    [0, W],
-    [L, 0],
-    [L, W]
-  ].forEach(
-    (
-      [
-        x,
-        z
-      ]
-    ) => {
-      const corner =
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            post,
-            H,
-            post
-          ),
-          frameMaterial
-        );
-
-      corner.position.set(
-        x,
-        H /
-          2,
-        z
-      );
-
-      group.add(
-        corner
-      );
-    }
-  );
-
-
-  /* CORNER CASTINGS */
-
-  [
-    [0, 0, 0],
-    [0, 0, W],
-    [0, H, 0],
-    [0, H, W],
-    [L, 0, 0],
-    [L, 0, W],
-    [L, H, 0],
-    [L, H, W]
-  ].forEach(
-    (
-      [
-        x,
-        y,
-        z
-      ]
-    ) => {
-      const casting =
-        new THREE.Mesh(
-          new THREE.BoxGeometry(
-            0.105,
-            0.105,
-            0.105
-          ),
-          frameHighlightMaterial
-        );
-
-      casting.position.set(
-        x,
-        y,
-        z
-      );
-
-      group.add(
-        casting
-      );
-    }
-  );
-
-
-  /* SUBTLE END-FRAME DIAGONALS */
-
-  [
-    0,
-    L
-  ].forEach(
-    x => {
-      const material =
-        new THREE.LineBasicMaterial({
-          color:
-            0x7f8c99,
-
-          transparent:
-            true,
-
-          opacity:
-            0.45
-        });
-
-      const diag1 =
-        new THREE.Line(
-          new THREE.BufferGeometry()
-            .setFromPoints([
-              new THREE.Vector3(
-                x,
-                0,
-                0
-              ),
-              new THREE.Vector3(
-                x,
-                H,
-                W
-              )
-            ]),
-          material
-        );
-
-      const diag2 =
-        new THREE.Line(
-          new THREE.BufferGeometry()
-            .setFromPoints([
-              new THREE.Vector3(
-                x,
-                H,
-                0
-              ),
-              new THREE.Vector3(
-                x,
-                0,
-                W
-              )
-            ]),
-          material
-        );
-
-      group.add(
-        diag1
-      );
-
-      group.add(
-        diag2
-      );
-    }
-  );
-
-
-  /* DOOR-SIDE FRAME EMPHASIS */
-
-  const doorTop =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
-        rail *
-          1.15,
-        rail *
-          1.15,
-        W
-      ),
-      frameHighlightMaterial
-    );
-
-  doorTop.position.set(
-    L,
-    H,
-    W /
-      2
-  );
-
-  group.add(
-    doorTop
-  );
-
-  const doorBottom =
-    doorTop.clone();
-
-  doorBottom.position.y =
-    0;
-
-  group.add(
-    doorBottom
-  );
-
 
   return group;
 }
@@ -8319,7 +7922,41 @@ function bindEvents() {
       );
     }
   );
-document
+
+  document
+    .getElementById(
+      'shellModeBtn'
+    )
+    .addEventListener(
+      'click',
+      event => {
+        containerVisualMode =
+          containerVisualMode ===
+          'cutaway'
+            ? 'shell'
+            : 'cutaway';
+
+        event.currentTarget
+          .textContent =
+            containerVisualMode ===
+            'cutaway'
+              ? 'Cutaway'
+              : 'Full Shell';
+
+        event.currentTarget
+          .classList.toggle(
+            'active-tool',
+            containerVisualMode ===
+            'cutaway'
+          );
+
+        render3D(
+          packingResult
+        );
+      }
+    );
+
+  document
     .getElementById(
       'dimensionToggleBtn'
     )
