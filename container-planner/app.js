@@ -2943,17 +2943,18 @@ function renderCargoList() {
                 nextMode
               );
 
-              if (
-                nextMode ===
-                'auto' &&
-                manualSelectedItemId ===
-                item.Item_ID
+              if (nextMode === 'guided' || nextMode === 'manual') {
+                manualSelectedItemId = item.Item_ID;
+                manualGridVisible = true;
+                highlightedItemId = item.Item_ID;
+                renderCargoList();
+                render3D(packingResult);
+              } else if (
+                nextMode === 'auto' &&
+                manualSelectedItemId === item.Item_ID
               ) {
-                manualSelectedItemId =
-                  '';
-
-                manualGridVisible =
-                  false;
+                manualSelectedItemId = '';
+                manualGridVisible = false;
               }
             }
           );
@@ -4184,13 +4185,26 @@ function moveManualZoneByFoot(itemId, axis, delta) {
   scheduleRefreshEverything();
 }
 
+function activeManualItemId() {
+  if (manualSelectedItemId && items.some(item => item.Item_ID === manualSelectedItemId)) {
+    return manualSelectedItemId;
+  }
+
+  const active = items.find(item => {
+    const mode = String(getProductRule(item)?.layoutMode || 'auto').toLowerCase();
+    return mode === 'guided' || mode === 'manual';
+  });
+
+  return active?.Item_ID || '';
+}
+
 function addManualMoveArrow(origin, direction, length, colour, itemId, axis, delta) {
   const dir = direction.clone().normalize();
   const group = new THREE.Group();
   const headLength = length * 0.30;
   const shaftLength = length - headLength;
-  const shaftRadius = Math.max(0.018, length * 0.045);
-  const headRadius = Math.max(0.045, length * 0.11);
+  const shaftRadius = Math.max(0.028, length * 0.060);
+  const headRadius = Math.max(0.075, length * 0.15);
   const material = new THREE.MeshBasicMaterial({
     color: colour,
     transparent: true,
@@ -8487,17 +8501,15 @@ function initThree() {
   renderer.domElement.addEventListener(
     'click',
     event => {
-      if (
-        !manualSelectedItemId
-      ) {
+      const activeItemId = activeManualItemId();
+      if (!activeItemId) {
         return;
       }
 
       const item =
         items.find(
           cargo =>
-            cargo.Item_ID ===
-            manualSelectedItemId
+            cargo.Item_ID === activeItemId
         );
 
       const container =
@@ -8896,11 +8908,10 @@ function render3D(
     }
   }
 
+  const selectedManualItemId = activeManualItemId();
   const selectedManualItem =
     items.find(
-      item =>
-        item.Item_ID ===
-        manualSelectedItemId
+      item => item.Item_ID === selectedManualItemId
     );
 
   if (
@@ -9077,7 +9088,7 @@ function render3D(
 
   if (selectedManualItem) {
     const zone = manualZoneForItem(selectedManualItem, { L, W, H });
-    const arrowLength = Math.max(0.38, Math.min(0.72, ONE_FOOT_MM * scale * 0.95));
+    const arrowLength = Math.max(0.62, Math.min(1.05, ONE_FOOT_MM * scale * 1.35));
     const gap = Math.max(0.08, arrowLength * 0.18);
     const cx = (zone.x + zone.l / 2) * scale;
     const cy = Math.min(scaledH - 0.05, (zone.z + zone.h) * scale + 0.10);
