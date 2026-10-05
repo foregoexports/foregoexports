@@ -121,6 +121,11 @@ let actionProgressStartedAt = 0;
 let actionProgressDelayTimer = null;
 let renderRequested = true;
 let refreshFrameId = 0;
+let warehouseDocsDirty = true;
+
+function isPackingLoadingWorkspace() {
+  return Boolean(document.getElementById('plannerView')?.classList.contains('packing-loading-mode'));
+}
 
 function actionLabelFromElement(el) {
   if (!el) return 'Working…';
@@ -1953,6 +1958,8 @@ function scheduleRefreshEverything() {
 }
 
 function refreshEverything() {
+  const pageScrollX = window.scrollX;
+  const pageScrollY = window.scrollY;
   ensureProductPlacementRules();
   assignUniqueDisplayColours();
 
@@ -1988,9 +1995,13 @@ function refreshEverything() {
     totals
   );
 
-  renderPackingAndLoadingLists(
-    packingResult
-  );
+  // Packing + Loading documents are expensive DOM work. Keep them deferred while
+  // the user is actively arranging cargo, then refresh once when that workspace opens.
+  warehouseDocsDirty = true;
+  if (isPackingLoadingWorkspace()) {
+    renderPackingAndLoadingLists(packingResult);
+    warehouseDocsDirty = false;
+  }
 
   render3D(
     packingResult
@@ -2001,6 +2012,11 @@ function refreshEverything() {
     totals
   );
 
+  requestAnimationFrame(() => {
+    if (Math.abs(window.scrollX - pageScrollX) > 1 || Math.abs(window.scrollY - pageScrollY) > 1) {
+      window.scrollTo(pageScrollX, pageScrollY);
+    }
+  });
   completeActionLoaderSoon();
 }
 
@@ -3056,7 +3072,7 @@ function renderCargoList() {
         button.addEventListener('click', () => {
           manualSelectedItemId = item.Item_ID;
           highlightedItemId = item.Item_ID;
-          moveManualZone(item.Item_ID, button.dataset.moveAxis, Number(button.dataset.moveDelta || 0));
+          moveManualZoneByFoot(item.Item_ID, button.dataset.moveAxis, Number(button.dataset.moveDelta || 0));
         });
       });
 
@@ -3751,7 +3767,8 @@ function updateProductRule(
 
   saveProductPlacementRules();
 
-  refreshEverything();
+  // Coalesce repeated Move / Stack / rule clicks into one calculation per frame.
+  scheduleRefreshEverything();
 
   showToast(
     'Placement rule updated.'
@@ -10997,6 +11014,11 @@ function bindEvents() {
 
     plannerView?.classList.toggle('packing-loading-mode', loading);
     plannerView?.classList.toggle('stuffing-plan-mode', !loading);
+
+    if (loading && warehouseDocsDirty && packingResult) {
+      renderPackingAndLoadingLists(packingResult);
+      warehouseDocsDirty = false;
+    }
     document.getElementById('stuffingModeBtn')?.classList.toggle('active', !loading);
     document.getElementById('loadingModeBtn')?.classList.toggle('active', loading);
     document.getElementById('stuffingModeBtn')?.setAttribute('aria-pressed', String(!loading));
