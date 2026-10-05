@@ -97,8 +97,17 @@ let showSceneDimensions = true;
 let showOccupancyMarkers = true;
 let highlightedItemId = '';
 
+/* Warehouse execution state — tied to the exact physical packing fingerprint. */
+let selectedLoadingStepId = '';
+let selectedLoadingPlacementIndices = new Set();
+let loadingStepCache = [];
+let loadingProgressDone = new Set();
+let loadingProgressFingerprint = '';
+
 let manualSelectedItemId = '';
 let manualGridVisible = false;
+let manualGizmoTargets = [];
+const openCargoDetailKeys = new Set();
 const ONE_FOOT_MM = 304.8;
 
 /* Intuitive quantity controls — local-first, then debounced backend save. */
@@ -107,6 +116,9 @@ const quantitySaveVersions = new Map();
 
 let actionProgressTimer = null;
 let actionProgressStartedAt = 0;
+let actionProgressDelayTimer = null;
+let renderRequested = true;
+let refreshFrameId = 0;
 
 function actionLabelFromElement(el) {
   if (!el) return 'Working…';
@@ -124,6 +136,7 @@ function showActionLoader(title = 'Working…', detail = 'Updating container pla
   const box = document.getElementById('actionProgress');
   if (!box) return;
   clearTimeout(actionProgressTimer);
+  clearTimeout(actionProgressDelayTimer);
   actionProgressStartedAt = performance.now();
   const t = document.getElementById('actionProgressTitle');
   const d = document.getElementById('actionProgressDetail');
@@ -133,11 +146,25 @@ function showActionLoader(title = 'Working…', detail = 'Updating container pla
   box.setAttribute('aria-hidden', 'false');
 }
 
-function hideActionLoader(minimumVisibleMs = 300) {
+/*
+  Fast-feel loader: local actions get ~140 ms to finish before any spinner appears.
+  This avoids flashing a loader for operations that already feel instant while still
+  giving feedback for genuinely slower calculations/network actions.
+*/
+function queueActionLoader(title = 'Working…', detail = 'Updating container plan…', delay = 140) {
+  clearTimeout(actionProgressDelayTimer);
+  actionProgressDelayTimer = setTimeout(() => showActionLoader(title, detail), delay);
+}
+
+function hideActionLoader(minimumVisibleMs = 0) {
   const box = document.getElementById('actionProgress');
+  clearTimeout(actionProgressDelayTimer);
+  actionProgressDelayTimer = null;
   if (!box) return;
   clearTimeout(actionProgressTimer);
-  const wait = Math.max(0, minimumVisibleMs - (performance.now() - actionProgressStartedAt));
+  const wait = box.classList.contains('show')
+    ? Math.max(0, minimumVisibleMs - (performance.now() - actionProgressStartedAt))
+    : 0;
   actionProgressTimer = setTimeout(() => {
     box.classList.remove('show');
     box.setAttribute('aria-hidden', 'true');
@@ -145,25 +172,27 @@ function hideActionLoader(minimumVisibleMs = 300) {
 }
 
 function completeActionLoaderSoon() {
-  requestAnimationFrame(() => requestAnimationFrame(() => hideActionLoader(320)));
+  requestAnimationFrame(() => requestAnimationFrame(() => hideActionLoader(80)));
 }
 
-/* Pointer-down lets the spinner paint before a heavier click calculation starts. */
+/*
+  Start feedback on pointer-down, but only reveal it if the action is not already
+  complete after 140 ms. This makes +/−, rotate, view and grid controls feel instant.
+*/
 document.addEventListener('pointerdown', event => {
   const el = event.target.closest(
     'button, select, input[type="checkbox"], input[type="radio"], input[type="number"], input[type="color"]'
   );
   if (!el || el.disabled) return;
-  showActionLoader(actionLabelFromElement(el), 'Updating container plan…');
+  queueActionLoader(actionLabelFromElement(el), 'Updating container plan…', 140);
   clearTimeout(actionProgressTimer);
-  actionProgressTimer = setTimeout(() => hideActionLoader(0), 2500);
+  actionProgressTimer = setTimeout(() => hideActionLoader(0), 3000);
 }, true);
 
 document.addEventListener('change', event => {
   const el = event.target.closest('select, input');
   if (!el) return;
-  showActionLoader('Applying change…', actionLabelFromElement(el));
-  completeActionLoaderSoon();
+  queueActionLoader('Applying change…', actionLabelFromElement(el), 140);
 }, true);
 
 
@@ -250,6 +279,15 @@ const legend =
 
 const fitResults =
   document.getElementById('fitResults');
+
+const packingListBody = document.getElementById('packingListBody');
+const packingListFoot = document.getElementById('packingListFoot');
+const packingListPanel = document.getElementById('packingListPanel');
+const loadingListPanel = document.getElementById('loadingListPanel');
+const loadingStepsEl = document.getElementById('loadingSteps');
+const planReadiness = document.getElementById('planReadiness');
+const loadingProgressText = document.getElementById('loadingProgressText');
+const loadingProgressBar = document.getElementById('loadingProgressBar');
 
 const viewer =
   document.getElementById('viewer');
@@ -1861,9 +1899,56 @@ async function reloadPlan() {
 }
 
 
+
+/* =========================================================
+   PACKING LIST + FOOLPROOF LOADING SEQUENCE
+========================================================= */
+function packingFingerprint(result) {
+  let hash = 2166136261;
+  const feed = value => { const text = String(value); for (let i=0;i<text.length;i++){ hash ^= text.charCodeAt(i); hash = Math.imul(hash,16777619); } };
+  (result?.placements || []).forEach(p => { feed(p.itemId); feed(Math.round(p.x)); feed(Math.round(p.y)); feed(Math.round(p.z)); feed(Math.round(p.l)); feed(Math.round(p.w)); feed(Math.round(p.h)); feed(p.orientationKey || ''); });
+  return `${(result?.placements || []).length}-${(hash>>>0).toString(36)}`;
+}
+function loadingProgressStorageKey(){ return `forego_loading_progress_${plan?.Plan_ID || 'draft'}`; }
+function loadLoadingProgress(result){
+  const fingerprint=packingFingerprint(result); if(fingerprint===loadingProgressFingerprint)return;
+  loadingProgressFingerprint=fingerprint; loadingProgressDone=new Set();
+  try{ const saved=JSON.parse(localStorage.getItem(loadingProgressStorageKey())||'{}'); if(saved.fingerprint===fingerprint&&Array.isArray(saved.done))loadingProgressDone=new Set(saved.done); }catch(_){}
+}
+function saveLoadingProgress(){ try{localStorage.setItem(loadingProgressStorageKey(),JSON.stringify({fingerprint:loadingProgressFingerprint,done:[...loadingProgressDone]}));}catch(_){} }
+function longitudinalZoneLabel(centerX,L){const r=L>0?centerX/L:0;if(r<.18)return'BACK';if(r<.40)return'REAR';if(r<.62)return'MIDDLE';if(r<.84)return'FRONT';return'DOORS';}
+function widthZoneLabel(centerY,W){const r=W>0?centerY/W:.5;if(r<.34)return'LEFT';if(r>.66)return'RIGHT';return'CENTRE';}
+function buildLoadingSteps(result){
+  const container=selectedContainer(); const L=Number(container?.Internal_Length_mm||0),W=Number(container?.Internal_Width_mm||0),bayDepth=3*ONE_FOOT_MM; const groups=new Map();
+  (result?.placements||[]).forEach((p,index)=>{const item=items.find(i=>i.Item_ID===p.itemId);if(!item)return;const cx=p.x+p.l/2,cy=p.y+p.w/2,bay=Math.max(0,Math.floor(cx/bayDepth)),verticalBand=Math.max(0,Math.floor((p.z+1)/ONE_FOOT_MM)),side=widthZoneLabel(cy,W),key=[bay,verticalBand,p.itemId,p.orientationKey||p.orientationType||'default',side].join('|');
+    if(!groups.has(key))groups.set(key,{key,bay,verticalBand,item,orientation:p.orientationType||'default',orientationKey:p.orientationKey||'',indices:[],placements:[],minX:Infinity,maxX:0,minZ:Infinity,maxZ:0,centerYTotal:0});
+    const g=groups.get(key);g.indices.push(index);g.placements.push(p);g.minX=Math.min(g.minX,p.x);g.maxX=Math.max(g.maxX,p.x+p.l);g.minZ=Math.min(g.minZ,p.z);g.maxZ=Math.max(g.maxZ,p.z+p.h);g.centerYTotal+=cy;
+  });
+  return [...groups.values()].sort((a,b)=>a.bay-b.bay||a.verticalBand-b.verticalBand||Number(a.item.Loading_Order||9999)-Number(b.item.Loading_Order||9999)||a.minX-b.minX).map((g,idx)=>{const qty=g.indices.length,kg=qty*Number(g.item.Gross_Weight_Kg||0),avgY=g.centerYTotal/Math.max(1,qty),zone=longitudinalZoneLabel((g.minX+g.maxX)/2,L),side=widthZoneLabel(avgY,W),fromFt=g.minX/ONE_FOOT_MM,toFt=g.maxX/ONE_FOOT_MM,floor=g.minZ<8,level=floor?'FLOOR':`UPPER @ ${(g.minZ/ONE_FOOT_MM).toFixed(1)} ft`,orientation=g.orientation==='floor'?'Floor / rotated':g.orientation==='side'?'Sideways':'Default';return{...g,step:idx+1,id:`S${idx+1}-${g.key}`,qty,kg,zone,side,fromFt,toFt,level,orientation};});
+}
+function renderPackingAndLoadingLists(result){
+  if(!packingListBody||!loadingStepsEl)return;loadLoadingProgress(result);const resultMap=new Map((result?.results||[]).map(r=>[r.item.Item_ID,r]));let reqTotal=0,plannedTotal=0,shortTotal=0,weightTotal=0,cbmTotal=0;
+  packingListBody.innerHTML=items.map((item,index)=>{const row=resultMap.get(item.Item_ID),requested=Number(row?.requested??item.Quantity??0),planned=Number(row?.fitted||0),short=Math.max(0,requested-planned),unitKg=Number(item.Gross_Weight_Kg||0),totalKg=planned*unitKg,unitCBM=Number(item.Length_mm||0)*Number(item.Width_mm||0)*Number(item.Height_mm||0)/1e9,totalCBM=planned*unitCBM;reqTotal+=requested;plannedTotal+=planned;shortTotal+=short;weightTotal+=totalKg;cbmTotal+=totalCBM;
+    return `<tr><td>${index+1}</td><td><div class="ops-product"><span class="colour-dot" style="background:${escapeHtml(displayColour(item))}"></span>${escapeHtml(item.Product_Name)}</div></td><td>${escapeHtml(item.Packing_Type||'—')}</td><td><strong>${formatNumber(requested)}</strong></td><td><strong>${formatNumber(planned)}</strong></td><td>${short?`<strong>${formatNumber(short)}</strong>`:'—'}</td><td>${formatDimension(item.Length_mm)} × ${formatDimension(item.Width_mm)} × ${formatDimension(item.Height_mm)} ${dimensionLabel()}</td><td>${formatDecimal(weightFromKG(unitKg),2)} ${weightLabel()}</td><td><strong>${formatDecimal(weightFromKG(totalKg),2)} ${weightLabel()}</strong></td><td>${formatDecimal(totalCBM,3)}</td><td><span class="ops-status ${short?'short':'ok'}">${short?'SHORT':'READY'}</span></td></tr>`;}).join('')||`<tr><td colspan="11" class="empty-ops">Add cargo to create the packing list.</td></tr>`;
+  packingListFoot.innerHTML=`<tr><td colspan="3">TOTAL</td><td>${formatNumber(reqTotal)}</td><td>${formatNumber(plannedTotal)}</td><td>${shortTotal?formatNumber(shortTotal):'—'}</td><td></td><td></td><td>${formatDecimal(weightFromKG(weightTotal),2)} ${weightLabel()}</td><td>${formatDecimal(cbmTotal,3)}</td><td>${shortTotal?'CHECK':'READY'}</td></tr>`;
+  const payloadExceeded=Number(result?.maxPayloadKG||0)>0&&Number(result?.loadedPayloadKG||0)>Number(result.maxPayloadKG)+.001,ready=shortTotal===0&&!payloadExceeded&&plannedTotal>0;planReadiness.className=`plan-readiness ${ready?'ready':'warning'}`;planReadiness.innerHTML=`<div class="readiness-main"><span class="readiness-badge">${ready?'READY TO LOAD':'REVIEW REQUIRED'}</span><strong>${ready?'All requested packages are physically planned within payload.':shortTotal?`${formatNumber(shortTotal)} requested package(s) are not in the physical plan.`:'Add cargo or review container capacity.'}</strong></div><div class="readiness-stats">${formatNumber(plannedTotal)} pkgs · ${formatDecimal(weightFromKG(weightTotal),2)} ${weightLabel()} · ${formatDecimal(cbmTotal,2)} CBM</div>`;
+  loadingStepCache=buildLoadingSteps(result);const validIds=new Set(loadingStepCache.map(s=>s.id));loadingProgressDone=new Set([...loadingProgressDone].filter(id=>validIds.has(id)));if(selectedLoadingStepId&&!validIds.has(selectedLoadingStepId)){selectedLoadingStepId='';selectedLoadingPlacementIndices=new Set();}
+  loadingStepsEl.innerHTML=loadingStepCache.map(step=>{const done=loadingProgressDone.has(step.id),selected=selectedLoadingStepId===step.id;return `<div class="loading-step ${done?'done':''} ${selected?'selected':''}" data-step-id="${escapeHtml(step.id)}" role="button" tabindex="0"><div class="step-number">${String(step.step).padStart(2,'0')}</div><div class="step-product"><span class="colour-dot" style="background:${escapeHtml(displayColour(step.item))}"></span><div class="step-meta"><span>Product</span><strong>${escapeHtml(step.item.Product_Name)}</strong></div></div><div class="step-meta step-location"><span>Position</span><strong class="step-zone">${step.zone} · ${step.side}</strong><small>${step.fromFt.toFixed(1)}–${step.toFt.toFixed(1)} ft from back · ${step.level}</small></div><div class="step-meta step-orientation"><span>Orientation</span><strong>${escapeHtml(step.orientation)}</strong></div><div class="step-meta step-weight"><span>Load</span><strong>${formatNumber(step.qty)} pkgs · ${formatDecimal(weightFromKG(step.kg),1)} ${weightLabel()}</strong></div><label class="step-check"><input class="loading-step-check" type="checkbox" data-step-id="${escapeHtml(step.id)}" ${done?'checked':''}> Loaded</label></div>`;}).join('')||`<div class="empty-ops">The loading sequence will appear when cargo is physically placed.</div>`;updateLoadingProgressUI();
+}
+function updateLoadingProgressUI(){const total=loadingStepCache.length,done=loadingStepCache.filter(s=>loadingProgressDone.has(s.id)).length,pct=total?(done/total)*100:0;if(loadingProgressText)loadingProgressText.textContent=`${done} / ${total} steps loaded`;if(loadingProgressBar)loadingProgressBar.style.width=`${pct}%`;}
+function selectLoadingStep(stepId){const step=loadingStepCache.find(s=>s.id===stepId);selectedLoadingStepId=step?.id||'';selectedLoadingPlacementIndices=new Set(step?.indices||[]);renderPackingAndLoadingLists(packingResult);render3D(packingResult);}
+
 /* =========================================================
    REFRESH UI
 ========================================================= */
+
+function scheduleRefreshEverything() {
+  if (refreshFrameId) return;
+  refreshFrameId = requestAnimationFrame(() => {
+    refreshFrameId = 0;
+    refreshEverything();
+  });
+}
 
 function refreshEverything() {
   ensureProductPlacementRules();
@@ -1899,6 +1984,10 @@ function refreshEverything() {
 
   renderUtilisation(
     totals
+  );
+
+  renderPackingAndLoadingLists(
+    packingResult
   );
 
   render3D(
@@ -2038,7 +2127,9 @@ function setCargoQuantity(itemId, quantity, options = {}) {
   if (next === previous) return;
 
   item.Quantity = next;
-  refreshEverything();
+
+  // Coalesce rapid +/− clicks into a single visual recalculation per animation frame.
+  scheduleRefreshEverything();
   if (options.save !== false) queueCargoQuantitySave(itemId, next);
   if (options.toast) showToast(options.toast);
 }
@@ -2126,6 +2217,8 @@ async function fillAvailableCargo(itemId, button) {
 ========================================================= */
 
 function renderCargoList() {
+  const previousScrollTop = cargoList.scrollTop;
+
   if (!items.length) {
     cargoList.innerHTML =
       `
@@ -2199,6 +2292,7 @@ function renderCargoList() {
 
     card.className =
       'cargo-card';
+    card.dataset.itemId = item.Item_ID;
 
     card.innerHTML =
       `
@@ -2509,6 +2603,7 @@ function renderCargoList() {
             ${manualSelectedItemId === item.Item_ID ? 'Tap the 1 ft Grid…' : 'Select Area on 1 ft Grid'}
           </button>
           <button class="small-btn zone-full-width-btn" type="button">Use Full Width</button>
+          <span class="manual-gizmo-hint">Then use the arrows inside the container to move this area 1 ft at a time.</span>
         </div>
 
         <details class="manual-advanced-details ${getProductRule(item).layoutMode === 'auto' ? 'hidden' : ''}">
@@ -2691,6 +2786,20 @@ function renderCargoList() {
       </div>
       </details>
       `;
+
+    [
+      ['.manual-advanced-details', 'manual'],
+      ['.advanced-placement-details', 'placement']
+    ].forEach(([selector, key]) => {
+      const details = card.querySelector(selector);
+      if (!details) return;
+      const stateKey = `${item.Item_ID}|${key}`;
+      details.open = openCargoDetailKeys.has(stateKey);
+      details.addEventListener('toggle', () => {
+        if (details.open) openCargoDetailKeys.add(stateKey);
+        else openCargoDetailKeys.delete(stateKey);
+      });
+    });
 
     card
       .querySelector(
@@ -3059,6 +3168,10 @@ function renderCargoList() {
     cargoList.appendChild(
       card
     );
+  });
+
+  requestAnimationFrame(() => {
+    cargoList.scrollTop = previousScrollTop;
   });
 }
 
@@ -4036,6 +4149,92 @@ function clampNumber(
   );
 }
 
+
+function moveManualZoneByFoot(itemId, axis, delta) {
+  const item = items.find(cargo => cargo.Item_ID === itemId);
+  const container = selectedContainer();
+  if (!item || !container) return;
+
+  const rule = getProductRule(item);
+  const dimensionMM = {
+    x: Number(container.Internal_Length_mm || 0),
+    y: Number(container.Internal_Width_mm || 0),
+    z: Number(container.Internal_Height_mm || 0)
+  }[axis];
+  const sizeFt = {
+    x: Math.max(1, Number(rule.zoneLFt || 1)),
+    y: Math.max(1, Number(rule.zoneWFt || 1)),
+    z: Math.max(1, Number(rule.zoneHFt || 1))
+  }[axis];
+  const field = { x: 'zoneXFt', y: 'zoneYFt', z: 'zoneZFt' }[axis];
+  if (!field || !dimensionMM) return;
+
+  const maxStartFt = Math.max(0, Math.floor((dimensionMM - sizeFt * ONE_FOOT_MM) / ONE_FOOT_MM + 1e-6));
+  const current = Math.max(0, Math.round(Number(rule[field] || 0)));
+  const next = Math.min(maxStartFt, Math.max(0, current + delta));
+  if (next === current) return;
+
+  productPlacementRules[itemId] = {
+    ...defaultProductRule(item),
+    ...rule,
+    [field]: next
+  };
+
+  saveProductPlacementRules();
+  scheduleRefreshEverything();
+}
+
+function addManualMoveArrow(origin, direction, length, colour, itemId, axis, delta) {
+  const dir = direction.clone().normalize();
+  const group = new THREE.Group();
+  const headLength = length * 0.30;
+  const shaftLength = length - headLength;
+  const shaftRadius = Math.max(0.018, length * 0.045);
+  const headRadius = Math.max(0.045, length * 0.11);
+  const material = new THREE.MeshBasicMaterial({
+    color: colour,
+    transparent: true,
+    opacity: 0.92,
+    depthTest: false
+  });
+
+  const alignYToDir = new THREE.Quaternion().setFromUnitVectors(
+    new THREE.Vector3(0, 1, 0),
+    dir
+  );
+
+  const shaft = new THREE.Mesh(
+    new THREE.CylinderGeometry(shaftRadius, shaftRadius, shaftLength, 10),
+    material
+  );
+  shaft.quaternion.copy(alignYToDir);
+  shaft.position.copy(origin).addScaledVector(dir, shaftLength / 2);
+  shaft.renderOrder = 50;
+  group.add(shaft);
+
+  const head = new THREE.Mesh(
+    new THREE.ConeGeometry(headRadius, headLength, 12),
+    material
+  );
+  head.quaternion.copy(alignYToDir);
+  head.position.copy(origin).addScaledVector(dir, shaftLength + headLength / 2);
+  head.renderOrder = 50;
+  group.add(head);
+
+  // Larger nearly-invisible hit target keeps the arrows easy to tap on a tablet.
+  const hit = new THREE.Mesh(
+    new THREE.CylinderGeometry(shaftRadius * 3.2, shaftRadius * 3.2, length, 8),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.001, depthWrite: false, depthTest: false })
+  );
+  hit.quaternion.copy(alignYToDir);
+  hit.position.copy(origin).addScaledVector(dir, length / 2);
+  hit.userData.manualMove = { itemId, axis, delta };
+  hit.renderOrder = 60;
+  group.add(hit);
+  manualGizmoTargets.push(hit);
+
+  cargoGroup.add(group);
+}
 
 function manualZoneForItem(
   item,
@@ -8262,19 +8461,20 @@ function initThree() {
   renderer =
     new THREE.WebGLRenderer({
       antialias: true,
-      preserveDrawingBuffer: true
+      preserveDrawingBuffer: true,
+      powerPreference: 'high-performance'
     });
 
+  // 1.5x is visually crisp while avoiding the large GPU cost of 2x on Retina displays.
   renderer.setPixelRatio(
     Math.min(
       window.devicePixelRatio,
-      2
+      1.5
     )
   );
 
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type =
-    THREE.PCFSoftShadowMap;
+  // The engineering line-frame view does not need realtime shadows.
+  renderer.shadowMap.enabled = false;
 
   viewer.appendChild(
     renderer.domElement
@@ -8344,6 +8544,13 @@ function initThree() {
         pointer,
         camera
       );
+
+      const gizmoHit = raycaster.intersectObjects(manualGizmoTargets, false)[0];
+      if (gizmoHit?.object?.userData?.manualMove) {
+        const move = gizmoHit.object.userData.manualMove;
+        moveManualZoneByFoot(move.itemId, move.axis, move.delta);
+        return;
+      }
 
       const floorPlane =
         new THREE.Plane(
@@ -8471,7 +8678,7 @@ function initThree() {
     8
   );
 
-  keyLight.castShadow = true;
+  keyLight.castShadow = false;
 
   scene.add(keyLight);
 
@@ -8515,6 +8722,7 @@ function render3D(
   clearGroup(
     cargoGroup
   );
+  manualGizmoTargets = [];
 
   const container =
     selectedContainer();
@@ -8865,6 +9073,54 @@ function render3D(
   }
 
 
+  /* DIRECT MANUAL / GUIDED MOVE ARROWS */
+
+  if (selectedManualItem) {
+    const zone = manualZoneForItem(selectedManualItem, { L, W, H });
+    const arrowLength = Math.max(0.38, Math.min(0.72, ONE_FOOT_MM * scale * 0.95));
+    const gap = Math.max(0.08, arrowLength * 0.18);
+    const cx = (zone.x + zone.l / 2) * scale;
+    const cy = Math.min(scaledH - 0.05, (zone.z + zone.h) * scale + 0.10);
+    const cz = (zone.y + zone.w / 2) * scale;
+
+    // Length axis: BACK ↔ DOORS
+    addManualMoveArrow(
+      new THREE.Vector3((zone.x + zone.l) * scale + gap, cy, cz),
+      new THREE.Vector3(1, 0, 0), arrowLength, 0x2563eb,
+      selectedManualItem.Item_ID, 'x', 1
+    );
+    addManualMoveArrow(
+      new THREE.Vector3(zone.x * scale - gap, cy, cz),
+      new THREE.Vector3(-1, 0, 0), arrowLength, 0x2563eb,
+      selectedManualItem.Item_ID, 'x', -1
+    );
+
+    // Width axis: LEFT ↔ RIGHT
+    addManualMoveArrow(
+      new THREE.Vector3(cx, cy, (zone.y + zone.w) * scale + gap),
+      new THREE.Vector3(0, 0, 1), arrowLength, 0x16a34a,
+      selectedManualItem.Item_ID, 'y', 1
+    );
+    addManualMoveArrow(
+      new THREE.Vector3(cx, cy, zone.y * scale - gap),
+      new THREE.Vector3(0, 0, -1), arrowLength, 0x16a34a,
+      selectedManualItem.Item_ID, 'y', -1
+    );
+
+    // Height axis: DOWN ↕ UP
+    addManualMoveArrow(
+      new THREE.Vector3(cx, (zone.z + zone.h) * scale + gap, cz),
+      new THREE.Vector3(0, 1, 0), arrowLength, 0xf59e0b,
+      selectedManualItem.Item_ID, 'z', 1
+    );
+    addManualMoveArrow(
+      new THREE.Vector3(cx, zone.z * scale - gap, cz),
+      new THREE.Vector3(0, -1, 0), arrowLength, 0xf59e0b,
+      selectedManualItem.Item_ID, 'z', -1
+    );
+  }
+
+
   /* TRUE 3D DIMENSIONS */
 
   if (
@@ -9006,120 +9262,87 @@ function render3D(
   }
 
 
-  /* CARGO BOXES */
+  /* CARGO BOXES — FAST INSTANCED RENDERING
+     One InstancedMesh per colour/focus state replaces hundreds or thousands of
+     individual Mesh + EdgesGeometry objects. The 2.8% spacing between cartons
+     keeps every package visually readable without expensive per-box outlines. */
 
-  result.placements.forEach(
-    placement => {
-      const isFocused =
-        !highlightedItemId ||
-        highlightedItemId ===
-          placement.itemId;
+  const instanceGroups = new Map();
 
-      const geometry =
-        new THREE.BoxGeometry(
-          placement.l *
-          scale *
-          0.972,
+  result.placements.forEach((placement, placementIndex) => {
+    const stepFocused = selectedLoadingPlacementIndices.size === 0 || selectedLoadingPlacementIndices.has(placementIndex);
+    const productFocused = !highlightedItemId || highlightedItemId === placement.itemId;
+    const isFocused = stepFocused && productFocused;
 
-          placement.h *
-          scale *
-          0.972,
+    const colour = placement.colour || '#64748B';
+    const key = `${colour}|${isFocused ? 'focus' : 'dim'}`;
 
-          placement.w *
-          scale *
-          0.972
-        );
-
-      const material =
-        new THREE.MeshStandardMaterial({
-          color:
-            placement.colour ||
-            '#64748B',
-
-          roughness:
-            0.54,
-
-          metalness:
-            0.015,
-
-          transparent:
-            true,
-
-          opacity:
-            isFocused
-              ? 0.96
-              : 0.12
-        });
-
-      const mesh =
-        new THREE.Mesh(
-          geometry,
-          material
-        );
-
-      mesh.position.set(
-        (
-          placement.x +
-          placement.l /
-          2
-        ) *
-        scale,
-
-        (
-          placement.z +
-          placement.h /
-          2
-        ) *
-        scale,
-
-        (
-          placement.y +
-          placement.w /
-          2
-        ) *
-        scale
-      );
-
-      mesh.castShadow =
-        isFocused;
-
-      mesh.receiveShadow =
-        true;
-
-      const outline =
-        new THREE.LineSegments(
-          new THREE.EdgesGeometry(
-            geometry
-          ),
-
-          new THREE.LineBasicMaterial({
-            color:
-              0x26313f,
-
-            transparent:
-              true,
-
-            opacity:
-              isFocused
-                ? 0.38
-                : 0.06
-          })
-        );
-
-      mesh.add(
-        outline
-      );
-
-      cargoGroup.add(
-        mesh
-      );
+    if (!instanceGroups.has(key)) {
+      instanceGroups.set(key, {
+        colour,
+        isFocused,
+        placements: []
+      });
     }
-  );
+
+    instanceGroups.get(key).placements.push(placement);
+  });
+
+  const unitGeometry = new THREE.BoxGeometry(1, 1, 1);
+
+  instanceGroups.forEach(group => {
+    const material = new THREE.MeshLambertMaterial({
+      color: group.colour,
+      transparent: true,
+      opacity: group.isFocused ? 0.96 : 0.12,
+      depthWrite: group.isFocused
+    });
+
+    const mesh = new THREE.InstancedMesh(
+      unitGeometry.clone(),
+      material,
+      group.placements.length
+    );
+
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    mesh.frustumCulled = true;
+
+    const matrix = new THREE.Matrix4();
+    const position = new THREE.Vector3();
+    const quaternion = new THREE.Quaternion();
+    const instanceScale = new THREE.Vector3();
+
+    group.placements.forEach((placement, index) => {
+      position.set(
+        (placement.x + placement.l / 2) * scale,
+        (placement.z + placement.h / 2) * scale,
+        (placement.y + placement.w / 2) * scale
+      );
+
+      instanceScale.set(
+        placement.l * scale * 0.972,
+        placement.h * scale * 0.972,
+        placement.w * scale * 0.972
+      );
+
+      matrix.compose(position, quaternion, instanceScale);
+      mesh.setMatrixAt(index, matrix);
+    });
+
+    mesh.instanceMatrix.needsUpdate = true;
+    cargoGroup.add(mesh);
+  });
+
+  unitGeometry.dispose();
 
 
   applyView(
     currentView
   );
+
+  renderRequested = true;
 }
 
 
@@ -9573,6 +9796,8 @@ function applyView(view) {
   currentView =
     view;
 
+  renderRequested = true;
+
   document
     .querySelectorAll(
       '.view-tab'
@@ -9686,6 +9911,8 @@ function resizeViewer() {
 
   camera
     .updateProjectionMatrix();
+
+  renderRequested = true;
 }
 
 
@@ -9694,19 +9921,25 @@ function animate() {
     animate
   );
 
+  let controlsChanged = false;
+
   if (controls) {
     controls.autoRotate =
       autoRotate &&
       currentView ===
       '3d';
 
-    controls.update();
+    controlsChanged = Boolean(controls.update());
   }
 
-  renderer?.render(
-    scene,
-    camera
-  );
+  // Avoid redrawing the entire WebGL scene 60 times/second while nothing moves.
+  if (renderer && (renderRequested || controlsChanged || (autoRotate && currentView === '3d'))) {
+    renderer.render(
+      scene,
+      camera
+    );
+    renderRequested = false;
+  }
 }
 
 
@@ -9933,124 +10166,178 @@ function calculateProductOccupancy(
    PRINT
 ========================================================= */
 
-function preparePrint() {
-  if (
-    !plan ||
-    !items.length
-  ) {
-    alert(
-      'Add at least one cargo item before printing.'
-    );
+function uniqueAxisCount(values, tolerance = 4) {
+  const sorted = values.filter(Number.isFinite).sort((a,b)=>a-b);
+  if (!sorted.length) return 0;
+  let count = 1;
+  let anchor = sorted[0];
+  for (let i=1;i<sorted.length;i++) {
+    if (Math.abs(sorted[i]-anchor) > tolerance) {
+      count++;
+      anchor = sorted[i];
+    }
+  }
+  return count;
+}
 
+function loadingStepPattern(step) {
+  const ps = step?.placements || [];
+  if (!ps.length) return '—';
+  const deep = uniqueAxisCount(ps.map(p=>p.x));
+  const across = uniqueAxisCount(ps.map(p=>p.y));
+  const layers = uniqueAxisCount(ps.map(p=>p.z));
+  const parts = [`${across} across`, `${deep} deep`];
+  if (layers > 1) parts.push(`${layers} layers`);
+  return parts.join(' × ');
+}
+
+function printStepSvg(step, priorIndices, view = 'top') {
+  const container = selectedContainer();
+  const L = Number(container?.Internal_Length_mm || 1);
+  const W = Number(container?.Internal_Width_mm || 1);
+  const H = Number(container?.Internal_Height_mm || 1);
+  const placements = packingResult?.placements || [];
+  const current = new Set(step?.indices || []);
+  const prior = priorIndices || new Set();
+  const colour = displayColour(step.item) || '#438d35';
+  const width = 920, height = 260, left = 58, right = 58, top = 34, bottom = 48;
+  const iw = width-left-right, ih = height-top-bottom;
+  const rects = [];
+  const safe = v => Number.isFinite(Number(v)) ? Number(v) : 0;
+
+  const pushRect = (p, fill, opacity, stroke, sw) => {
+    let x,y,w,h;
+    if (view === 'top') {
+      x = left + (safe(p.x)/L)*iw;
+      y = top + (safe(p.y)/W)*ih;
+      w = Math.max(1.5,(safe(p.l)/L)*iw);
+      h = Math.max(1.5,(safe(p.w)/W)*ih);
+    } else {
+      x = left + (safe(p.y)/W)*iw;
+      y = top + ih - ((safe(p.z)+safe(p.h))/H)*ih;
+      w = Math.max(1.5,(safe(p.w)/W)*iw);
+      h = Math.max(1.5,(safe(p.h)/H)*ih);
+    }
+    rects.push(`<rect x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${w.toFixed(2)}" height="${h.toFixed(2)}" rx="1.5" fill="${fill}" fill-opacity="${opacity}" stroke="${stroke}" stroke-width="${sw}"/>`);
+  };
+
+  placements.forEach((p,index)=>{
+    if (prior.has(index)) pushRect(p,'#94a3b8',0.23,'#64748b',0.45);
+  });
+  placements.forEach((p,index)=>{
+    if (current.has(index)) pushRect(p,colour,0.92,'#17331b',0.8);
+  });
+
+  const labels = view === 'top'
+    ? `<text x="${left}" y="${height-13}" font-size="14" font-weight="800">BACK</text><text x="${width-right}" y="${height-13}" font-size="14" font-weight="800" text-anchor="end">DOORS</text><path d="M ${left+52} ${height-18} H ${width-right-58}" stroke="#17331b" stroke-width="1.5"/><path d="M ${width-right-58} ${height-18} l -9 -5 v 10 z" fill="#17331b"/>`
+    : `<text x="${left}" y="${height-13}" font-size="13" font-weight="800">LEFT WALL</text><text x="${width-right}" y="${height-13}" font-size="13" font-weight="800" text-anchor="end">RIGHT WALL</text>`;
+  const title = view === 'top' ? 'TOP VIEW — POSITION ALONG CONTAINER' : 'SECTION VIEW — STACK ACROSS WIDTH';
+  return `<svg class="print-step-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${title}"><text x="${left}" y="19" font-size="13" font-weight="900" fill="#17331b">${title}</text><rect x="${left}" y="${top}" width="${iw}" height="${ih}" rx="4" fill="#fff" stroke="#17331b" stroke-width="2"/>${rects.join('')}${labels}</svg>`;
+}
+
+function printStepInstruction(step) {
+  const notes = [];
+  if (step.level === 'FLOOR') notes.push('Place on the container floor and keep the base tight and level.');
+  else notes.push('Confirm the supporting lower load is complete and stable before stacking this step.');
+  if (step.side === 'LEFT') notes.push('Work from the left wall toward the centre.');
+  if (step.side === 'RIGHT') notes.push('Work from the right wall toward the centre.');
+  if (step.side === 'CENTRE') notes.push('Keep this block centred across the available width.');
+  notes.push('Close avoidable gaps; secure any operational void before proceeding.');
+  return notes.join(' ');
+}
+
+function preparePrint() {
+  if (!plan || !items.length) {
+    alert('Add at least one cargo item before printing.');
     return;
   }
 
-  showGlobalLoader(
-    'Preparing loading plan…',
-    'Capturing the 3D view and print reference.'
-  );
+  showGlobalLoader('Preparing warehouse loading sheet…','Building the packing list, visual loading steps and final verification.');
 
-  const image =
-    document.getElementById(
-      'print3dImage'
-    );
+  const image = document.getElementById('print3dImage');
+  const savedStepId = selectedLoadingStepId;
+  const savedPlacementSelection = new Set(selectedLoadingPlacementIndices || []);
+  try {
+    selectedLoadingStepId = '';
+    selectedLoadingPlacementIndices = new Set();
+    render3D(packingResult);
+    image.src = renderer.domElement.toDataURL('image/png');
+  } catch (_) {
+    image.removeAttribute('src');
+  } finally {
+    selectedLoadingStepId = savedStepId;
+    selectedLoadingPlacementIndices = savedPlacementSelection;
+    render3D(packingResult);
+  }
 
-  image.src =
-    renderer
-      .domElement
-      .toDataURL(
-        'image/png'
-      );
+  const container = selectedContainer();
+  const resultMap = new Map((packingResult?.results || []).map(r => [r.item.Item_ID, r]));
+  const printSteps = buildLoadingSteps(packingResult);
+  const stepQtyByItem = new Map();
+  printSteps.forEach(step=>stepQtyByItem.set(step.item.Item_ID,(stepQtyByItem.get(step.item.Item_ID)||0)+step.qty));
 
-  const container =
-    selectedContainer();
+  let requestedTotal=0, plannedTotal=0, shortTotal=0, grossKg=0, cbmTotal=0;
+  const packingRows = items.map((item,index)=>{
+    const row=resultMap.get(item.Item_ID);
+    const requested=Number(row?.requested ?? item.Quantity ?? 0);
+    const planned=Number(row?.fitted || 0);
+    const short=Math.max(0,requested-planned);
+    const unitKg=Number(item.Gross_Weight_Kg||0);
+    const totalKg=planned*unitKg;
+    const unitCBM=Number(item.Length_mm||0)*Number(item.Width_mm||0)*Number(item.Height_mm||0)/1e9;
+    const totalCBM=planned*unitCBM;
+    const sequenced=stepQtyByItem.get(item.Item_ID)||0;
+    const reconciled=sequenced===planned;
+    requestedTotal+=requested;plannedTotal+=planned;shortTotal+=short;grossKg+=totalKg;cbmTotal+=totalCBM;
+    return {item,index,requested,planned,short,unitKg,totalKg,totalCBM,sequenced,reconciled};
+  });
+  const payloadExceeded=Number(packingResult?.maxPayloadKG||0)>0&&Number(packingResult?.loadedPayloadKG||0)>Number(packingResult.maxPayloadKG)+.001;
+  const sequenceMismatch=packingRows.some(r=>!r.reconciled);
+  const ready=plannedTotal>0&&shortTotal===0&&!payloadExceeded&&!sequenceMismatch;
 
-  document
-    .getElementById(
-      'printPlanMeta'
-    )
-    .innerHTML =
-      `
-      <p>
-        <strong>Plan:</strong>
-        ${escapeHtml(
-          plan.Plan_ID
-        )}
-      </p>
+  document.getElementById('printReadinessBadge').className=`print-ready-badge ${ready?'ready':'warning'}`;
+  document.getElementById('printReadinessBadge').textContent=ready?'READY TO LOAD':'REVIEW REQUIRED';
+  document.getElementById('printPlanMeta').innerHTML=`
+    <div><span>Plan</span><strong>${escapeHtml(plan.Plan_ID)}</strong></div>
+    <div><span>Container</span><strong>${escapeHtml(container?.Container_Name||'')}</strong></div>
+    <div><span>Internal Size</span><strong>${formatDimension(container.Internal_Length_mm)} × ${formatDimension(container.Internal_Width_mm)} × ${formatDimension(container.Internal_Height_mm)} ${dimensionLabel()}</strong></div>
+    <div><span>Planned Packages</span><strong>${formatNumber(plannedTotal)}</strong></div>
+    <div><span>Planned Gross</span><strong>${formatDecimal(weightFromKG(grossKg),2)} ${weightLabel()}</strong></div>
+    <div><span>Planned CBM</span><strong>${formatDecimal(cbmTotal,3)} CBM</strong></div>`;
+  document.getElementById('printOverallOrientation').innerHTML=`<strong>LOADING DIRECTION</strong><span>BACK</span><div class="print-direction-line"></div><span>DOORS</span><small>Load the deepest cargo first. Complete lower/supporting cargo before upper cargo in the same bay.</small>`;
 
-      <p>
-        <strong>Container:</strong>
-        ${escapeHtml(
-          container?.Container_Name ||
-          ''
-        )}
-      </p>
+  document.getElementById('printItems').innerHTML=`
+    <div class="print-pack-row print-pack-head"><span>#</span><span>Product / Packing</span><span>Requested</span><span>Planned</span><span>Gross</span><span>Sequence</span><span>Status</span></div>
+    ${packingRows.map(r=>`<div class="print-pack-row"><span>${r.index+1}</span><span><strong>${escapeHtml(r.item.Product_Name)}</strong><small>${escapeHtml(r.item.Packing_Type||'—')} · ${formatDimension(r.item.Length_mm)} × ${formatDimension(r.item.Width_mm)} × ${formatDimension(r.item.Height_mm)} ${dimensionLabel()}</small></span><span>${formatNumber(r.requested)}</span><span>${formatNumber(r.planned)}</span><span>${formatDecimal(weightFromKG(r.totalKg),1)} ${weightLabel()}</span><span>${formatNumber(r.sequenced)} ${r.reconciled?'✓':'!'}</span><span class="${r.short||!r.reconciled?'print-status-bad':'print-status-ok'}">${r.short?`SHORT ${formatNumber(r.short)}`:!r.reconciled?'MISMATCH':'READY'}</span></div>`).join('')}
+    <div class="print-pack-row print-pack-total"><span></span><span>TOTAL</span><span>${formatNumber(requestedTotal)}</span><span>${formatNumber(plannedTotal)}</span><span>${formatDecimal(weightFromKG(grossKg),1)} ${weightLabel()}</span><span>${formatNumber(printSteps.reduce((n,s)=>n+s.qty,0))}</span><span>${ready?'READY':'CHECK'}</span></div>`;
 
-      <p>
-        <strong>Internal Size:</strong>
-        ${formatDimension(
-          container.Internal_Length_mm
-        )}
-        ×
-        ${formatDimension(
-          container.Internal_Width_mm
-        )}
-        ×
-        ${formatDimension(
-          container.Internal_Height_mm
-        )}
-        ${dimensionLabel()}
-      </p>
+  document.getElementById('printSummaryChecks').innerHTML=`
+    <strong>PRE-LOADING RELEASE CHECK</strong>
+    <div>☐ Packing list physically counted / verified</div><div>☐ Container condition checked: dry, clean and suitable</div>
+    <div>☐ Payload / weight limits reviewed</div><div>☐ Dunnage, blocking / bracing and securing materials ready</div>
+    <div>☐ BACK and DOORS orientation confirmed with loading team</div><div>☐ Any special cargo handling instructions briefed</div>
+    ${!ready?`<p class="print-warning"><strong>DO NOT RELEASE AS FINAL:</strong> ${shortTotal?`${formatNumber(shortTotal)} package(s) are short of the requested quantity. `:''}${payloadExceeded?'Payload requires review. ':''}${sequenceMismatch?'Loading sequence does not reconcile with the physical packing plan.':''}</p>`:''}`;
 
-      <p>
-        <strong>Total Packages:</strong>
-        ${
-          items.reduce(
-            (
-              total,
-              item
-            ) =>
-              total +
-              Number(
-                item.Quantity ||
-                0
-              ),
-            0
-          )
-        }
-      </p>
-      `;
+  let priorIndices=new Set();
+  document.getElementById('printLoadingSteps').innerHTML=printSteps.map(step=>{
+    const topSvg=printStepSvg(step,priorIndices,'top');
+    const frontSvg=printStepSvg(step,priorIndices,'front');
+    const page=`<section class="print-page print-loading-page">
+      <div class="print-step-header"><div><div class="print-brand">FOREGO EXPORTS · WAREHOUSE LOADING INSTRUCTION</div><h2>STEP ${String(step.step).padStart(2,'0')} OF ${String(printSteps.length).padStart(2,'0')} — ${escapeHtml(step.item.Product_Name)}</h2></div><div class="print-step-qty"><span>LOAD NOW</span><strong>${formatNumber(step.qty)} PACKAGES</strong><small>${formatDecimal(weightFromKG(step.kg),1)} ${weightLabel()}</small></div></div>
+      <div class="print-step-facts"><div><span>Position</span><strong>${step.zone} · ${step.side}</strong></div><div><span>Distance from Back</span><strong>${step.fromFt.toFixed(1)}–${step.toFt.toFixed(1)} ft</strong></div><div><span>Level</span><strong>${escapeHtml(step.level)}</strong></div><div><span>Orientation</span><strong>${escapeHtml(step.orientation)}</strong></div><div><span>Pattern</span><strong>${escapeHtml(loadingStepPattern(step))}</strong></div><div><span>Packing</span><strong>${escapeHtml(step.item.Packing_Type||'—')}</strong></div></div>
+      <div class="print-step-visuals"><div>${topSvg}<p><b>Highlighted:</b> load in this step. <span class="print-context-key">Grey:</span> already-loaded context.</p></div><div>${frontSvg}<p>Use this section view to verify the stack position across the container width.</p></div></div>
+      <div class="print-step-note"><strong>LOADING INSTRUCTION</strong><p>${escapeHtml(printStepInstruction(step))}</p></div>
+      <div class="print-step-checks"><label>☐ Counted <b>${formatNumber(step.qty)}</b> packages</label><label>☐ Position / orientation verified</label><label>☐ Support / stack stability checked</label><label>☐ Voids / movement controlled</label><label>☐ STEP ${String(step.step).padStart(2,'0')} COMPLETE</label></div>
+      <div class="print-step-footer"><span>Actual loaded: ______ packages</span><span>Variance / note: ______________________________________________</span><span>Initial: __________</span></div>
+    </section>`;
+    (step.indices||[]).forEach(i=>priorIndices.add(i));
+    return page;
+  }).join('') || '<section class="print-page"><h2>No physical loading steps.</h2></section>';
 
-  document
-    .getElementById(
-      'printItems'
-    )
-    .innerHTML =
-      items
-        .map(item => `
-          <div class="print-item">
-            <span>
-              ${escapeHtml(
-                item.Product_Name
-              )}
-            </span>
+  document.getElementById('printReconciliation').innerHTML=`<div class="print-reconcile-head"><span>Product</span><span>Packing List</span><span>Loading Steps</span><span>Actual Loaded</span><span>Variance</span><span>Check</span></div>${packingRows.map(r=>`<div class="print-reconcile-row"><strong>${escapeHtml(r.item.Product_Name)}</strong><span>${formatNumber(r.planned)}</span><span>${formatNumber(r.sequenced)}</span><span>________</span><span>________</span><span>${r.reconciled?'✓ MATCH':'⚠ CHECK'}</span></div>`).join('')}<div class="print-reconcile-row total"><strong>TOTAL</strong><span>${formatNumber(plannedTotal)}</span><span>${formatNumber(printSteps.reduce((n,s)=>n+s.qty,0))}</span><span>________</span><span>________</span><span>${sequenceMismatch?'CHECK':'✓ MATCH'}</span></div>`;
+  document.getElementById('printFinalChecklist').innerHTML=`<h3>Before Closing Container</h3><div class="print-final-grid"><div>☐ Every loading step completed in sequence</div><div>☐ Actual loaded quantity reconciled product-by-product</div><div>☐ No loose / unstable packages or unsafe voids</div><div>☐ Required blocking, bracing, dunnage / securing completed</div><div>☐ Door-end cargo checked before closing</div><div>☐ Final photos taken and retained with plan</div><div>☐ Container doors close freely without cargo pressure</div><div>☐ Container / seal number recorded after closure</div></div>`;
 
-            <strong>
-              ${formatNumber(
-                item.Quantity
-              )}
-            </strong>
-          </div>
-        `)
-        .join('');
-
-  setTimeout(
-    () => {
-      hideGlobalLoader();
-      window.print();
-    },
-    220
-  );
+  setTimeout(()=>{ hideGlobalLoader(); window.print(); },260);
 }
 
 
@@ -10545,6 +10832,13 @@ function bindEvents() {
           )
       );
     });
+
+  document.getElementById('showPackingListBtn')?.addEventListener('click',()=>{document.getElementById('showPackingListBtn')?.classList.add('active');document.getElementById('showLoadingListBtn')?.classList.remove('active');packingListPanel?.classList.remove('hidden');loadingListPanel?.classList.add('hidden');});
+  document.getElementById('showLoadingListBtn')?.addEventListener('click',()=>{document.getElementById('showLoadingListBtn')?.classList.add('active');document.getElementById('showPackingListBtn')?.classList.remove('active');loadingListPanel?.classList.remove('hidden');packingListPanel?.classList.add('hidden');const next=loadingStepCache.find(step=>!loadingProgressDone.has(step.id))||loadingStepCache[loadingStepCache.length-1];if(next)selectLoadingStep(next.id);});
+  loadingStepsEl?.addEventListener('click',event=>{const check=event.target.closest('.loading-step-check');if(check){event.stopPropagation();const id=check.dataset.stepId;const stepIndex=loadingStepCache.findIndex(step=>step.id===id);if(check.checked){const firstIncomplete=loadingStepCache.findIndex((step,index)=>index<stepIndex&&!loadingProgressDone.has(step.id));if(firstIncomplete>=0){check.checked=false;showToast(`Complete Step ${String(firstIncomplete+1).padStart(2,'0')} first.`,'error',2600);selectLoadingStep(loadingStepCache[firstIncomplete].id);return;}loadingProgressDone.add(id);const next=loadingStepCache.slice(stepIndex+1).find(step=>!loadingProgressDone.has(step.id));if(next){selectedLoadingStepId=next.id;selectedLoadingPlacementIndices=new Set(next.indices||[]);}}else{loadingProgressDone.delete(id);selectedLoadingStepId=id;const step=loadingStepCache[stepIndex];selectedLoadingPlacementIndices=new Set(step?.indices||[]);}saveLoadingProgress();renderPackingAndLoadingLists(packingResult);render3D(packingResult);return;}const row=event.target.closest('.loading-step');if(row)selectLoadingStep(row.dataset.stepId);});
+  loadingStepsEl?.addEventListener('keydown',event=>{if(event.key!=='Enter'&&event.key!==' ')return;const row=event.target.closest('.loading-step');if(!row)return;event.preventDefault();selectLoadingStep(row.dataset.stepId);});
+  document.getElementById('resetLoadingProgressBtn')?.addEventListener('click',()=>{if(!loadingProgressDone.size||confirm('Reset all loading progress for this plan?')){loadingProgressDone.clear();selectedLoadingStepId='';selectedLoadingPlacementIndices=new Set();saveLoadingProgress();renderPackingAndLoadingLists(packingResult);render3D(packingResult);}});
+  document.getElementById('printLoadingSheetBtn')?.addEventListener('click',preparePrint);
 
   document
     .getElementById('downloadBtn')

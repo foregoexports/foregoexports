@@ -433,16 +433,98 @@
         </section>
       </section>
 
+      <!-- OPERATIONAL PACKING + LOADING LISTS -->
+      <section class="ops-docs" id="opsDocs">
+        <div class="ops-docs-header">
+          <div>
+            <div class="eyebrow">WAREHOUSE EXECUTION</div>
+            <h2>Packing List + Loading List</h2>
+            <p>One plan for what must ship, and one foolproof BACK → DOORS sequence for how the team loads it.</p>
+          </div>
+          <div class="ops-docs-actions">
+            <button id="showPackingListBtn" class="ops-tab active" type="button">Packing List</button>
+            <button id="showLoadingListBtn" class="ops-tab" type="button">Loading List</button>
+            <button id="printLoadingSheetBtn" class="primary-btn compact-btn" type="button">Print Loading Sheet</button>
+          </div>
+        </div>
+
+        <div id="planReadiness" class="plan-readiness"></div>
+
+        <div id="packingListPanel" class="ops-panel">
+          <div class="ops-panel-head">
+            <div>
+              <strong>Packing List</strong>
+              <span>Requested vs physically planned cargo</span>
+            </div>
+          </div>
+          <div class="ops-table-wrap">
+            <table class="ops-table">
+              <thead>
+                <tr>
+                  <th>#</th><th>Product</th><th>Packing</th><th>Requested</th><th>Planned</th><th>Short</th><th>Carton Size</th><th>Gross / Carton</th><th>Total Gross</th><th>CBM</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="packingListBody"></tbody>
+              <tfoot id="packingListFoot"></tfoot>
+            </table>
+          </div>
+        </div>
+
+        <div id="loadingListPanel" class="ops-panel hidden">
+          <div class="loading-progress-head">
+            <div>
+              <strong>Loading Sequence</strong>
+              <span>Complete each bay from BACK → DOORS, floor → upper layers.</span>
+            </div>
+            <div class="loading-progress-actions">
+              <span id="loadingProgressText">0 / 0 steps loaded</span>
+              <button id="resetLoadingProgressBtn" class="secondary-btn compact-btn" type="button">Reset Progress</button>
+            </div>
+          </div>
+          <div class="loading-progress-track"><div id="loadingProgressBar"></div></div>
+          <div class="loading-rule-strip">
+            <strong>Rule:</strong> Finish the highlighted step before moving forward. Never place an upper-layer step before its lower step in the same bay.
+          </div>
+          <div id="loadingSteps" class="loading-steps"></div>
+        </div>
+      </section>
+
     </section>
 
 
-    <!-- PRINT -->
-    <section class="print-only">
-      <div class="print-brand">FOREGO EXPORTS</div>
-      <h2>Container Loading Plan</h2>
-      <div id="printPlanMeta"></div>
-      <img id="print3dImage" alt="3D container loading arrangement">
-      <div id="printItems"></div>
+    <!-- PRINTABLE WAREHOUSE LOADING BOOK -->
+    <section class="print-only warehouse-print">
+      <section class="print-page print-summary-page">
+        <div class="print-doc-head">
+          <div>
+            <div class="print-brand">FOREGO EXPORTS</div>
+            <h2>Container Stuffing — Packing & Loading Instruction</h2>
+            <p class="print-subtitle">Warehouse execution copy · Follow the numbered sequence from BACK → DOORS.</p>
+          </div>
+          <div id="printReadinessBadge" class="print-ready-badge">PLAN</div>
+        </div>
+        <div id="printPlanMeta" class="print-meta-grid"></div>
+        <div id="printOverallOrientation" class="print-orientation-strip"></div>
+        <img id="print3dImage" alt="3D container loading arrangement">
+        <h3>Packing List — Planned Cargo</h3>
+        <div id="printItems"></div>
+        <div id="printSummaryChecks" class="print-summary-checks"></div>
+      </section>
+
+      <section id="printLoadingSteps" class="print-step-pages"></section>
+
+      <section class="print-page print-verification-page">
+        <div class="print-brand">FOREGO EXPORTS</div>
+        <h2>Final Loading Verification</h2>
+        <p class="print-subtitle">Reconcile the physical load against the packing list before closing and sealing the container.</p>
+        <div id="printReconciliation"></div>
+        <div id="printFinalChecklist" class="print-final-checklist"></div>
+        <div class="print-signatures">
+          <div><span>Loaded by</span><strong>____________________________</strong><small>Name / Signature / Date</small></div>
+          <div><span>Checked by</span><strong>____________________________</strong><small>Name / Signature / Date</small></div>
+          <div><span>Container / Seal No.</span><strong>____________________________</strong><small>Record after final verification</small></div>
+        </div>
+      </section>
     </section>
   </main>
 
