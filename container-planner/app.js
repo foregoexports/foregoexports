@@ -2647,6 +2647,25 @@ function renderCargoList() {
             </label>
           </div>
 
+          <div class="manual-move-stack-panel">
+            <div class="zone-section-label">MOVE &amp; STACK</div>
+            <div class="manual-move-grid" aria-label="Move selected cargo zone">
+              <span></span><button class="move-zone-btn stack-up" data-move-axis="z" data-move-delta="1" type="button" title="Move / stack up">▲<small>UP</small></button><span></span>
+              <button class="move-zone-btn" data-move-axis="x" data-move-delta="-1" type="button" title="Move toward back">◀<small>BACK</small></button>
+              <div class="move-zone-centre">SELECTED<br>ZONE</div>
+              <button class="move-zone-btn" data-move-axis="x" data-move-delta="1" type="button" title="Move toward doors">▶<small>DOORS</small></button>
+              <button class="move-zone-btn" data-move-axis="y" data-move-delta="-1" type="button" title="Move left">◀<small>LEFT</small></button>
+              <button class="move-zone-btn stack-down" data-move-axis="z" data-move-delta="-1" type="button" title="Move / stack down">▼<small>DOWN</small></button>
+              <button class="move-zone-btn" data-move-axis="y" data-move-delta="1" type="button" title="Move right">▶<small>RIGHT</small></button>
+            </div>
+            <div class="stack-action-row">
+              <button class="small-btn zone-layer-btn" data-layer-delta="1" type="button">+ Stack Layer</button>
+              <button class="small-btn zone-layer-btn" data-layer-delta="-1" type="button">− Stack Layer</button>
+              <button class="small-btn zone-fill-height-btn" type="button">Fill Up</button>
+            </div>
+            <div class="manual-move-note">Arrows move the selected zone 1 ft. Stack Layer changes the reserved stacking height by 1 ft. Packing safety rules still apply.</div>
+          </div>
+
           <div class="manual-zone-actions">
             <label class="manual-orientation-field">
               <span>Orientation inside zone</span>
@@ -2960,6 +2979,41 @@ function renderCargoList() {
           );
         }
       );
+
+    card
+      .querySelectorAll('.move-zone-btn')
+      .forEach(button => {
+        button.addEventListener('click', () => {
+          manualSelectedItemId = item.Item_ID;
+          highlightedItemId = item.Item_ID;
+          moveManualZone(item.Item_ID, button.dataset.moveAxis, Number(button.dataset.moveDelta || 0));
+        });
+      });
+
+    card.querySelectorAll('.zone-layer-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const rule = getProductRule(item);
+        const delta = Number(button.dataset.layerDelta || 0);
+        const container = selectedContainer();
+        const maxHeightFt = Math.max(1, Math.floor(Number(container?.Internal_Height_mm || 0) / ONE_FOOT_MM));
+        const current = Math.max(1, Number(rule.zoneHFt || 1));
+        const next = Math.min(maxHeightFt, Math.max(1, current + delta));
+        manualSelectedItemId = item.Item_ID;
+        highlightedItemId = item.Item_ID;
+        updateProductRule(item.Item_ID, 'zoneHFt', next);
+      });
+    });
+
+    card.querySelector('.zone-fill-height-btn')?.addEventListener('click', () => {
+      const rule = getProductRule(item);
+      const container = selectedContainer();
+      const startFt = Math.max(0, Number(rule.zoneZFt || 0));
+      const totalFt = Number(container?.Internal_Height_mm || 0) / ONE_FOOT_MM;
+      const availableFt = Math.max(1, Math.floor(totalFt - startFt));
+      manualSelectedItemId = item.Item_ID;
+      highlightedItemId = item.Item_ID;
+      updateProductRule(item.Item_ID, 'zoneHFt', availableFt);
+    });
 
     card
       .querySelectorAll(
@@ -9086,7 +9140,7 @@ function render3D(
 
   /* DIRECT MANUAL / GUIDED MOVE ARROWS */
 
-  if (selectedManualItem) {
+  if (false && selectedManualItem) {
     const zone = manualZoneForItem(selectedManualItem, { L, W, H });
     const arrowLength = Math.max(0.62, Math.min(1.05, ONE_FOOT_MM * scale * 1.35));
     const gap = Math.max(0.08, arrowLength * 0.18);
@@ -10843,6 +10897,19 @@ function bindEvents() {
           )
       );
     });
+
+  const setPlannerWorkspaceMode = mode => {
+    const loading = mode === 'loading';
+    plannerView?.classList.toggle('packing-loading-mode', loading);
+    plannerView?.classList.toggle('stuffing-plan-mode', !loading);
+    document.getElementById('stuffingModeBtn')?.classList.toggle('active', !loading);
+    document.getElementById('loadingModeBtn')?.classList.toggle('active', loading);
+    try { sessionStorage.setItem('foregoPlannerWorkspaceMode', loading ? 'loading' : 'stuffing'); } catch (_) {}
+    requestAnimationFrame(() => { resizeRendererToViewer?.(); render3D(packingResult); });
+  };
+  document.getElementById('stuffingModeBtn')?.addEventListener('click',()=>setPlannerWorkspaceMode('stuffing'));
+  document.getElementById('loadingModeBtn')?.addEventListener('click',()=>setPlannerWorkspaceMode('loading'));
+  try { setPlannerWorkspaceMode(sessionStorage.getItem('foregoPlannerWorkspaceMode') === 'loading' ? 'loading' : 'stuffing'); } catch (_) { setPlannerWorkspaceMode('stuffing'); }
 
   document.getElementById('showPackingListBtn')?.addEventListener('click',()=>{document.getElementById('showPackingListBtn')?.classList.add('active');document.getElementById('showLoadingListBtn')?.classList.remove('active');packingListPanel?.classList.remove('hidden');loadingListPanel?.classList.add('hidden');});
   document.getElementById('showLoadingListBtn')?.addEventListener('click',()=>{document.getElementById('showLoadingListBtn')?.classList.add('active');document.getElementById('showPackingListBtn')?.classList.remove('active');loadingListPanel?.classList.remove('hidden');packingListPanel?.classList.add('hidden');const next=loadingStepCache.find(step=>!loadingProgressDone.has(step.id))||loadingStepCache[loadingStepCache.length-1];if(next)selectLoadingStep(next.id);});
