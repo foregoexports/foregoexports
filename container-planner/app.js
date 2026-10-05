@@ -108,6 +108,8 @@ let manualSelectedItemId = '';
 let manualGridVisible = false;
 let manualGizmoTargets = [];
 const openCargoDetailKeys = new Set();
+let expandedCargoItemId = '';
+const mobileCargoToolState = new Map();
 const ONE_FOOT_MM = 304.8;
 
 /* Intuitive quantity controls — local-first, then debounced backend save. */
@@ -2341,6 +2343,14 @@ function renderCargoList() {
         </button>
 
         <button
+          class="small-btn cargo-collapse-toggle"
+          type="button"
+          aria-label="Open cargo controls"
+        >
+          Controls
+        </button>
+
+        <button
           class="small-btn edit"
           type="button"
         >
@@ -2417,6 +2427,13 @@ function renderCargoList() {
           <button class="quantity-quick-btn quantity-plus-ten" type="button">+10</button>
           <span>${formatNumber(remaining)} remaining · ${formatDecimal(weightFromKG(Number(item.Gross_Weight_Kg || 0) * Number(item.Quantity || 0)), 2)} ${weightLabel()} requested</span>
         </div>
+      </div>
+
+      <div class="mobile-primary-actions" aria-label="Cargo controls">
+        <button class="mobile-cargo-action" data-mobile-tool="rotate" type="button">↻<span>Rotate</span></button>
+        <button class="mobile-cargo-action" data-mobile-tool="move" type="button">↔<span>Move</span></button>
+        <button class="mobile-cargo-action" data-mobile-tool="stack" type="button">⇧<span>Stack</span></button>
+        <button class="mobile-cargo-action" data-mobile-tool="advanced" type="button">•••<span>More</span></button>
       </div>
 
       <div class="live-fit-strip ${remaining > 0 ? 'has-remaining' : ''}">
@@ -2603,7 +2620,7 @@ function renderCargoList() {
             ${manualSelectedItemId === item.Item_ID ? 'Tap the 1 ft Grid…' : 'Select Area on 1 ft Grid'}
           </button>
           <button class="small-btn zone-full-width-btn" type="button">Use Full Width</button>
-          <span class="manual-gizmo-hint">Then use the arrows inside the container to move this area 1 ft at a time.</span>
+          <span class="manual-gizmo-hint">Use Move / Stack below for simple positioning. Precise coordinates stay under More.</span>
         </div>
 
         <details class="manual-advanced-details ${getProductRule(item).layoutMode === 'auto' ? 'hidden' : ''}">
@@ -2806,6 +2823,19 @@ function renderCargoList() {
       </details>
       `;
 
+    if (!expandedCargoItemId && items.length) expandedCargoItemId = items[0].Item_ID;
+    const mobileTool = mobileCargoToolState.get(item.Item_ID) || '';
+    card.dataset.mobileTool = mobileTool;
+    card.classList.toggle('expanded', expandedCargoItemId === item.Item_ID);
+
+    const titleRow = card.querySelector('.cargo-title-row');
+    const body = document.createElement('div');
+    body.className = 'cargo-card-body';
+    Array.from(card.children).forEach(child => {
+      if (child !== titleRow) body.appendChild(child);
+    });
+    card.appendChild(body);
+
     [
       ['.manual-advanced-details', 'manual'],
       ['.advanced-placement-details', 'placement']
@@ -2813,10 +2843,47 @@ function renderCargoList() {
       const details = card.querySelector(selector);
       if (!details) return;
       const stateKey = `${item.Item_ID}|${key}`;
-      details.open = openCargoDetailKeys.has(stateKey);
+      details.open = openCargoDetailKeys.has(stateKey) ||
+        (key === 'manual' && (mobileTool === 'move' || mobileTool === 'stack')) ||
+        (key === 'placement' && mobileTool === 'advanced');
       details.addEventListener('toggle', () => {
         if (details.open) openCargoDetailKeys.add(stateKey);
         else openCargoDetailKeys.delete(stateKey);
+      });
+    });
+
+    card.querySelector('.cargo-collapse-toggle')?.addEventListener('click', () => {
+      expandedCargoItemId = expandedCargoItemId === item.Item_ID ? '' : item.Item_ID;
+      renderCargoList();
+    });
+
+    card.querySelectorAll('.mobile-cargo-action').forEach(button => {
+      button.addEventListener('click', () => {
+        const tool = button.dataset.mobileTool || '';
+        expandedCargoItemId = item.Item_ID;
+        const next = mobileCargoToolState.get(item.Item_ID) === tool ? '' : tool;
+        mobileCargoToolState.set(item.Item_ID, next);
+
+        if (next === 'move' || next === 'stack') {
+          const rule = getProductRule(item);
+          if (rule.layoutMode === 'auto') {
+            productPlacementRules[item.Item_ID] = {
+              ...defaultProductRule(item),
+              ...(productPlacementRules[item.Item_ID] || {}),
+              layoutMode: 'guided'
+            };
+            saveProductPlacementRules();
+          }
+          manualSelectedItemId = item.Item_ID;
+          manualGridVisible = true;
+          highlightedItemId = item.Item_ID;
+          openCargoDetailKeys.add(`${item.Item_ID}|manual`);
+          refreshEverything();
+          return;
+        }
+
+        if (next === 'advanced') openCargoDetailKeys.add(`${item.Item_ID}|placement`);
+        renderCargoList();
       });
     });
 
@@ -2963,6 +3030,9 @@ function renderCargoList() {
               );
 
               if (nextMode === 'guided' || nextMode === 'manual') {
+                expandedCargoItemId = item.Item_ID;
+                mobileCargoToolState.set(item.Item_ID, 'move');
+                openCargoDetailKeys.add(`${item.Item_ID}|manual`);
                 manualSelectedItemId = item.Item_ID;
                 manualGridVisible = true;
                 highlightedItemId = item.Item_ID;
