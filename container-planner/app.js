@@ -10968,14 +10968,47 @@ function bindEvents() {
       );
     });
 
+  let stuffingWorkspaceSnapshot = null;
   const setPlannerWorkspaceMode = mode => {
     const loading = mode === 'loading';
+
+    if (loading && !plannerView?.classList.contains('packing-loading-mode')) {
+      stuffingWorkspaceSnapshot = {
+        currentView,
+        highlightedItemId,
+        manualSelectedItemId,
+        manualGridVisible,
+        expandedCargoItemId
+      };
+    }
+
+    if (!loading) {
+      // Loading-step highlighting belongs only to the warehouse workspace.
+      selectedLoadingStepId = '';
+      selectedLoadingPlacementIndices = new Set();
+      if (stuffingWorkspaceSnapshot) {
+        currentView = stuffingWorkspaceSnapshot.currentView || currentView;
+        highlightedItemId = stuffingWorkspaceSnapshot.highlightedItemId || '';
+        manualSelectedItemId = stuffingWorkspaceSnapshot.manualSelectedItemId || '';
+        manualGridVisible = Boolean(stuffingWorkspaceSnapshot.manualGridVisible);
+        expandedCargoItemId = stuffingWorkspaceSnapshot.expandedCargoItemId || expandedCargoItemId;
+      }
+    }
+
     plannerView?.classList.toggle('packing-loading-mode', loading);
     plannerView?.classList.toggle('stuffing-plan-mode', !loading);
     document.getElementById('stuffingModeBtn')?.classList.toggle('active', !loading);
     document.getElementById('loadingModeBtn')?.classList.toggle('active', loading);
+    document.getElementById('stuffingModeBtn')?.setAttribute('aria-pressed', String(!loading));
+    document.getElementById('loadingModeBtn')?.setAttribute('aria-pressed', String(loading));
+
+    if (!loading) renderCargoList();
     try { sessionStorage.setItem('foregoPlannerWorkspaceMode', loading ? 'loading' : 'stuffing'); } catch (_) {}
-    requestAnimationFrame(() => { resizeRendererToViewer?.(); render3D(packingResult); });
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      resizeRendererToViewer?.();
+      if (!loading && currentView) applyView(currentView);
+      else render3D(packingResult);
+    }));
   };
   document.getElementById('stuffingModeBtn')?.addEventListener('click',()=>setPlannerWorkspaceMode('stuffing'));
   document.getElementById('loadingModeBtn')?.addEventListener('click',()=>setPlannerWorkspaceMode('loading'));
